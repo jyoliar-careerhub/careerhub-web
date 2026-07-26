@@ -1,0 +1,39 @@
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+/*
+ * 디자인 토큰 (ADR-0015 — 토큰은 Tailwind 유틸리티로만 소비한다)
+ * 여기 정의된 값이 bg-brand-500, text-brand-600 같은 유틸리티가 된다.
+ * 색·간격이 필요해지면 마크업에 값을 적지 말고 여기에 토큰을 추가한다 —
+ * 임의 값(bg-[#...])·인라인 스타일·<style> 블록은 린트가 거부한다.
+ */
+@theme {
+  --color-brand-50: #eef6ff;
+  --color-brand-500: #2563eb;
+  --color-brand-600: #1d4ed8;
+  --color-brand-900: #1e3a5f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
