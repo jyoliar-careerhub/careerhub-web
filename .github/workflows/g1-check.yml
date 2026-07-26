@@ -1,0 +1,18 @@
+# G1 — PR 머지 게이트: 빠른 검사(타입·린트)만 둔다.
+# 느린 검사(e2e 등)는 이 게이트의 범위가 아니다 (ops-workflow#10 Requirements).
+name: g1
+
+on:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run check
