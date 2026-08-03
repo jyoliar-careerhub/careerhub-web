@@ -85,6 +85,13 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  {
+    // Playwright 픽스처의 두 번째 인자는 관례상 `use`다 — React Hook과 이름만 같다.
+    files: ["e2e/**/*.ts", "playwright.config.ts"],
+    rules: {
+      "react-hooks/rules-of-hooks": "off",
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
