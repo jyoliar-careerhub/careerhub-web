@@ -6,6 +6,9 @@ import type { Page } from "@playwright/test";
  * 여기에는 **바뀌지 않을 것만** 담는다 — 라우트, 데이터 흐름, 핵심 사용자 여정.
  * 선택자·레이아웃·디자인은 배선(`e2e/wiring/*`)의 것이고, 이 파일에 새어나오면 안 된다.
  * 대상 앱을 바꿔도 시나리오가 안 바뀌는 이유가 이 경계다 (ops-workflow#9).
+ *
+ * 명세가 앱 바깥(백엔드 API 등)에 묻는 일은 없다. **여정에 필요한 것은 전부 화면이 알려준다** —
+ * 무엇으로 검색할지도, 어느 공고에 리뷰가 달렸는지도 목록이 말해 준다.
  */
 
 /** 티켓이 명세 대상으로 정한 공개 라우트. URL 형태는 앱마다 다르므로 이름으로만 말한다. */
@@ -16,26 +19,24 @@ export type Route =
   | "login"
   | "unknown";
 
-/** 직접 진입할 수 있는 라우트 — 상세는 식별자가 필요하므로 제외된다. */
+/** 직접 진입할 수 있는 라우트 — 상세는 목록을 거쳐 들어간다. */
 export type EntryRoute = Extract<Route, "home" | "jobPostings" | "login">;
-
-/** 공고 하나를 가리키는 좌표. 값은 실행 시점에 발견하며 명세에 박지 않는다. */
-export interface PostingRef {
-  site: string;
-  postingId: string;
-}
 
 /**
  * 목록에 나열된 공고 하나가 말해 주는 것.
  *
  * 레이아웃이 아니라 **공고가 담고 있는 정보**다 — 어느 디자인이든 목록은 이걸 말해야 목록이다.
- * 시나리오는 여기서 검색어를 얻는다. 값을 명세에 박지 않고 화면이 준 것을 되쓰므로,
- * 데이터가 갈려도 명세는 흔들리지 않는다.
+ * 시나리오는 여기서 검색어도, 어느 공고를 열지도 정한다. 값을 명세에 박지 않고 화면이 준 것을
+ * 되쓰므로 데이터가 갈려도 명세는 흔들리지 않는다.
  */
 export interface ListedJobPosting {
   title: string;
   companyName: string;
   skills: string[];
+  /** 요구하는 최소 경력(년). 경력을 따지지 않으면 `null`. */
+  minCareer: number | null;
+  /** 회사 리뷰 수. 리뷰가 없으면 0. */
+  reviewCount: number;
 }
 
 /** 로그인 화면이 제시하는 인증 수단 진입점 하나. */
@@ -52,7 +53,7 @@ export interface JobPostingListScreen {
   /** 지금 조건에서 결과가 몇 페이지인가. "좁아졌다"를 구체값 없이 말하는 척도다. */
   totalPages(): Promise<number>;
   goToPage(page: number): Promise<void>;
-  /** 기술스택으로 결과를 좁힌다. 값은 전제 검사가 실데이터에서 발견해 준다. */
+  /** 기술스택으로 결과를 좁힌다. 값은 목록이 알려준 것을 되쓴다. */
   searchBySkill(skill: string): Promise<void>;
   /** 회사 이름으로 결과를 좁힌다. */
   searchByCompany(company: string): Promise<void>;
@@ -60,8 +61,8 @@ export interface JobPostingListScreen {
   filterByMinCareer(years: number): Promise<void>;
   /** 걸어 둔 조건을 모두 푼다. */
   clearFilters(): Promise<void>;
-  /** 나열된 첫 공고의 상세로 들어간다. */
-  openFirstListed(): Promise<void>;
+  /** 나열된 공고 중 n번째(0부터)의 상세로 들어간다. */
+  openListed(index: number): Promise<void>;
 }
 
 export interface JobPostingDetailScreen {
@@ -75,6 +76,8 @@ export interface JobPostingDetailScreen {
    * 내용 자체를 어서션하지 않는다 — 개수를 세거나 페이지끼리 비교하는 데만 쓴다.
    */
   listedReviewSummaries(): Promise<string[]>;
+  /** 리뷰가 몇 페이지인가. 리뷰가 없으면 0. 한 페이지 크기는 앱이 정하므로 앱에게 묻는다. */
+  reviewPageCount(): Promise<number>;
   goToReviewPage(page: number): Promise<void>;
 }
 
@@ -84,7 +87,6 @@ export interface LoginScreen {
 
 export interface JourneyDriver {
   visit(route: EntryRoute): Promise<void>;
-  visitJobPosting(ref: PostingRef): Promise<void>;
   /** 지금 어느 라우트에 있는가. URL 형태(해시/경로)는 배선이 흡수한다. */
   currentRoute(): Promise<Route>;
 

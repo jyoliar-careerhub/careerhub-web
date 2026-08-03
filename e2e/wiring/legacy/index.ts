@@ -4,7 +4,6 @@ import type {
   AuthEntryPoint,
   EntryRoute,
   JourneyDriver,
-  PostingRef,
   Route,
 } from "../../support/driver";
 
@@ -20,6 +19,7 @@ import type {
  * - **공고를 새 탭에서 연다** — 여정은 "상세가 나온다"이지 "같은 탭에서 나온다"가 아니므로,
  *   탭이 열리면 그쪽을 따라가고 아니면 그대로 둔다. 어느 쪽이든 시나리오는 같다.
  * - **페이지 번호를 창(window)으로 잘라 그린다** — 마지막 페이지에서는 1번 링크가 안 보인다.
+ * - **정보를 문장으로 그린다**(`경력 3~10` · `(77개 리뷰)`) — 값으로 되돌리는 것은 배선의 일이다.
  */
 
 const HASH_PATHS: Record<EntryRoute, string> = {
@@ -40,12 +40,24 @@ function pageLabel(page: number): string {
 
 /** 기존 앱은 목록 항목을 ` · `로 이어 붙여 그린다 — 구분자와 공백(NBSP 포함)을 걷어낸다. */
 function stripListSeparator(text: string): string {
-  return text.replace(/ /g, " ").replace(/^[\s·]+/, "").trim();
+  return text
+    .replace(/ /g, " ")
+    .replace(/^[\s·]+/, "")
+    .trim();
 }
 
 function firstNumberIn(text: string): number {
   const matched = /\d+/.exec(text);
   return matched ? Number.parseInt(matched[0], 10) : 0;
+}
+
+/** `경력 3~10` · `경력 5년 이상` · `경력 3년 이하` · `경력무관`을 최소 경력으로 되돌린다. */
+function parseMinCareer(text: string): number | null {
+  if (text === "" || text.includes("무관")) return null;
+  // 상한만 있는 표기는 최소 경력을 말하지 않는다.
+  if (text.includes("이하") && !text.includes("~")) return null;
+  const matched = /\d+/.exec(text);
+  return matched ? Number.parseInt(matched[0], 10) : null;
 }
 
 export function createLegacyDriver(page: Page): JourneyDriver {
@@ -56,24 +68,14 @@ export function createLegacyDriver(page: Page): JourneyDriver {
   const paginate = (): Locator => active.locator(".paginate").first();
   // 기술스택 상자와 기업명 상자가 같은 클래스를 쓴다 — 입력칸으로 구분한다.
   const techStack = (): Locator =>
-    active.locator(".eYcCqs").filter({ has: active.getByPlaceholder(/^기술스택/) });
+    active
+      .locator(".eYcCqs")
+      .filter({ has: active.getByPlaceholder(/^기술스택/) });
   const companyQuery = (): Locator =>
     active.locator(".eYcCqs").filter({ has: active.getByPlaceholder(/^기업명/) });
   const careerQuery = (): Locator => active.locator(".eYcCbP");
   /** 걸어 둔 조건은 패널 종류와 무관하게 같은 모양의 칩으로 그려진다. */
   const selectedFilters = (): Locator => active.locator(".btn_stack");
-
-  /** 검색 상자에 넣고 제안 목록에서 고른다 — 기존 앱의 검색은 자동완성 선택이다. */
-  const searchAndPick = async (
-    panel: Locator,
-    placeholder: RegExp,
-    keyword: string,
-  ): Promise<void> => {
-    const input = panel.getByPlaceholder(placeholder);
-    await input.fill(keyword);
-    await input.press("Enter");
-    await panel.getByText(keyword, { exact: true }).first().click();
-  };
 
   /**
    * 목록이 갱신되는 동안 페이지네이션이 통째로 다시 그려진다(질의가 바뀌면 개수부터 다시 받는다).
@@ -104,12 +106,6 @@ export function createLegacyDriver(page: Page): JourneyDriver {
     }
   };
 
-  const clickPageLink = async (label: string): Promise<void> => {
-    await clickWhenSettled(
-      paginate().getByText(label, { exact: true }).first(),
-    );
-  };
-
   const goToFirstPage = async (): Promise<void> => {
     await settlePagination();
     const first = paginate().getByText("first", { exact: true });
@@ -122,15 +118,22 @@ export function createLegacyDriver(page: Page): JourneyDriver {
     if ((await one.count()) > 0) await clickWhenSettled(one);
   };
 
+  /** 검색 상자에 넣고 제안 목록에서 고른다 — 기존 앱의 검색은 자동완성 선택이다. */
+  const searchAndPick = async (
+    panel: Locator,
+    placeholder: RegExp,
+    keyword: string,
+  ): Promise<void> => {
+    const input = panel.getByPlaceholder(placeholder);
+    await input.fill(keyword);
+    await input.press("Enter");
+    await panel.getByText(keyword, { exact: true }).first().click();
+  };
+
   return {
     async visit(route) {
       active = page;
       await active.goto(HASH_PATHS[route]);
-    },
-
-    async visitJobPosting({ site, postingId }: PostingRef) {
-      active = page;
-      await active.goto(`/#/job_posting/${site}/${postingId}`);
     },
 
     async currentRoute(): Promise<Route> {
@@ -146,7 +149,7 @@ export function createLegacyDriver(page: Page): JourneyDriver {
 
     jobPostingList: {
       async listedJobPostings() {
-        // 카드 하나에서 세 가지를 한 번에 긁는다 — 여러 번 물으면 그 사이에 목록이 갱신될 수 있다.
+        // 카드 하나에서 필요한 것을 한 번에 긁는다 — 여러 번 물으면 그 사이에 목록이 갱신될 수 있다.
         const raw = await cards().evaluateAll((elements) =>
           elements.map((element) => ({
             title: element.querySelector("h2")?.textContent ?? "",
@@ -155,6 +158,9 @@ export function createLegacyDriver(page: Page): JourneyDriver {
             skills: Array.from(
               element.querySelectorAll('ul[style*="brown"] li'),
             ).map((item) => item.textContent ?? ""),
+            career:
+              element.querySelector('ul li[style*="teal"]')?.textContent ?? "",
+            review: element.querySelector(".rating .num")?.textContent ?? "",
           })),
         );
 
@@ -162,6 +168,8 @@ export function createLegacyDriver(page: Page): JourneyDriver {
           title: posting.title.trim(),
           companyName: posting.companyName.trim(),
           skills: posting.skills.map(stripListSeparator),
+          minCareer: parseMinCareer(posting.career.trim()),
+          reviewCount: firstNumberIn(posting.review),
         }));
       },
 
@@ -190,7 +198,9 @@ export function createLegacyDriver(page: Page): JourneyDriver {
           await goToFirstPage();
           return;
         }
-        await clickPageLink(pageLabel(target));
+        await clickWhenSettled(
+          paginate().getByText(pageLabel(target), { exact: true }).first(),
+        );
       },
 
       async searchBySkill(skill) {
@@ -218,11 +228,11 @@ export function createLegacyDriver(page: Page): JourneyDriver {
         throw new Error("걸어 둔 조건이 걷히지 않는다 — 배선을 확인한다.");
       },
 
-      async openFirstListed() {
+      async openListed(index) {
         const opened = active
           .waitForEvent("popup", { timeout: POPUP_TIMEOUT_MS })
           .catch(() => null);
-        await cards().first().click();
+        await cards().nth(index).click();
 
         const popup = await opened;
         if (popup) {
@@ -261,8 +271,14 @@ export function createLegacyDriver(page: Page): JourneyDriver {
         return reviews.map((review) => review.replace(/\s+/g, " ").trim());
       },
 
-      async goToReviewPage(target) {
+      async reviewPageCount() {
         // 리뷰 페이지네이션은 리뷰 영역 안에 따로 있다(목록 페이지네이션과 다른 것).
+        const pages = await active.locator(".rating .paginate span").count();
+        if (pages > 0) return pages;
+        return (await active.locator(".review_item_inr").count()) > 0 ? 1 : 0;
+      },
+
+      async goToReviewPage(target) {
         await active
           .locator(".rating .paginate")
           .getByText(pageLabel(target), { exact: true })

@@ -13,12 +13,11 @@
 # testing
 /coverage
 
-# e2e (Playwright) — 산출물과, 전제 검사가 실행 시점에 발견한 값
+# e2e (Playwright) — 실행 산출물
 /test-results/
 /playwright-report/
 /blob-report/
 /playwright/.cache/
-/e2e/.data/
 
 # next.js
 /.next/

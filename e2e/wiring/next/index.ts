@@ -32,10 +32,6 @@ export function createNextDriver(page: Page): JourneyDriver {
       notImplemented(`visit(${route})`);
     },
 
-    async visitJobPosting() {
-      notImplemented("visitJobPosting");
-    },
-
     async currentRoute(): Promise<Route> {
       return notImplemented("currentRoute");
     },
@@ -62,8 +58,8 @@ export function createNextDriver(page: Page): JourneyDriver {
       async clearFilters() {
         notImplemented("jobPostingList.clearFilters");
       },
-      async openFirstListed() {
-        notImplemented("jobPostingList.openFirstListed");
+      async openListed() {
+        notImplemented("jobPostingList.openListed");
       },
     },
 
@@ -79,6 +75,9 @@ export function createNextDriver(page: Page): JourneyDriver {
       },
       async listedReviewSummaries(): Promise<string[]> {
         return notImplemented("jobPostingDetail.listedReviewSummaries");
+      },
+      async reviewPageCount(): Promise<number> {
+        return notImplemented("jobPostingDetail.reviewPageCount");
       },
       async goToReviewPage() {
         notImplemented("jobPostingDetail.goToReviewPage");

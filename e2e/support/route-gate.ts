@@ -5,8 +5,8 @@ import type { JourneyDriver, Route } from "./driver";
  *
  * 드라이버는 세 화면을 항상 다 들고 있고, TypeScript는 "지금 어느 라우트인가"라는 런타임 상태를
  * 모른다. 그래서 목록에 선 채로 상세의 메서드를 부르는 실수를 타입으로는 못 막는다.
- * 게다가 기존 앱에서는 그 실수가 **조용히 그럴듯한 값**을 낸다 — 목록 페이지에도 `h1`(기술스택 패널)이
- * 있고 카드에도 리뷰 수 표기가 있어, 상세의 제목·리뷰 수를 물으면 엉뚱한 값이 그대로 돌아온다.
+ * 게다가 기존 앱에서는 그 실수가 **조용히 그럴듯한 값**을 낸다 — 목록 페이지에도 `h1`(기술스택
+ * 패널)이 있고 카드에도 리뷰 수 표기가 있어, 상세의 제목·리뷰 수를 물으면 엉뚱한 값이 그대로 돌아온다.
  *
  * 규율로 지키는 대신 여기서 막는다. 라우트가 어긋나면 즉시, 어느 호출이 어디서 틀렸는지 말하며 죽는다.
  * 배선 바깥의 한 곳이므로 legacy·next 양쪽에 똑같이 걸린다.
@@ -23,7 +23,6 @@ export function withRouteGate(driver: JourneyDriver): JourneyDriver {
 
   return {
     visit: (route) => driver.visit(route),
-    visitJobPosting: (ref) => driver.visitJobPosting(ref),
     currentRoute: () => driver.currentRoute(),
 
     jobPostingList: {
@@ -55,9 +54,9 @@ export function withRouteGate(driver: JourneyDriver): JourneyDriver {
         await ensure("jobPostings", "jobPostingList.clearFilters()");
         return driver.jobPostingList.clearFilters();
       },
-      async openFirstListed() {
-        await ensure("jobPostings", "jobPostingList.openFirstListed()");
-        return driver.jobPostingList.openFirstListed();
+      async openListed(index) {
+        await ensure("jobPostings", "jobPostingList.openListed()");
+        return driver.jobPostingList.openListed(index);
       },
     },
 
@@ -83,6 +82,10 @@ export function withRouteGate(driver: JourneyDriver): JourneyDriver {
           "jobPostingDetail.listedReviewSummaries()",
         );
         return driver.jobPostingDetail.listedReviewSummaries();
+      },
+      async reviewPageCount() {
+        await ensure("jobPostingDetail", "jobPostingDetail.reviewPageCount()");
+        return driver.jobPostingDetail.reviewPageCount();
       },
       async goToReviewPage(page) {
         await ensure("jobPostingDetail", "jobPostingDetail.goToReviewPage()");
