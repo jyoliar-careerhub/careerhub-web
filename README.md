@@ -42,3 +42,35 @@ npm run check   # typecheck(tsc --noEmit) + lint(eslint, warning도 실패)
 npm run dev     # 개발 서버
 npm run build   # 프로덕션 빌드
 ```
+
+## e2e 명세 — 재작성의 완료 조건 (ops-workflow#9)
+
+기존 앱이 도는 동안 공개 4개 라우트(`/` · `/job_posting` · `/job_posting/:site/:postingId` · `/login`)의
+사용자 여정을 먼저 명세했다. **이 명세가 새 화면의 완료 조건이다** — 화면 Task는 자기 화면의
+배선을 `e2e/wiring/next/`에 채워 해당 시나리오를 통과시키면 된다.
+
+```
+e2e/scenarios/      # 앱도 호스트도 모른다. 라우트·여정·불변식만 — 대상 앱이 바뀌어도 안 바뀐다
+e2e/support/        # driver 인터페이스(시나리오가 쓰는 유일한 언어)·픽스처·전제 정의
+e2e/wiring/legacy/  # 기존 앱용 배선. 기존 앱이 은퇴하면 통째로 지운다
+e2e/wiring/next/    # 새 앱용 배선 — 골격만. 화면을 짓는 Task가 채운다
+e2e/preconditions/  # 데이터 전제 검사. 여정의 dependency로 먼저 돈다
+```
+
+```bash
+npm run e2e:legacy                                   # 기존 앱(prod)에 대고 돌린다
+LEGACY_BASE_URL=… API_BASE_URL=… npm run e2e:legacy  # 다른 환경을 겨눈다
+NEXT_BASE_URL=http://localhost:3000 npm run e2e      # 새 앱 배선이 채워진 뒤
+```
+
+규율이 아니라 구조로 지키는 것들:
+
+- **시나리오는 배선을 통해서만 앱을 만진다.** 선택자·URL·탭 동작은 배선이 흡수한다 —
+  기존 앱의 해시 라우팅도, 공고를 새 탭에서 여는 것도 시나리오에는 보이지 않는다.
+- **어서션은 불변식만.** 건수·공고 제목·카테고리명 같은 구체값을 시나리오에 박지 않는다
+  (실데이터가 하루 한 번 갈린다).
+- **데이터 전제는 여정과 분리한다.** 전제가 깨지면 여정은 실행되지 않고 "의존 실패"로 보고되므로,
+  전제 미충족과 앱 회귀가 같은 신호로 보이지 않는다.
+
+**이 명세는 아직 PR 게이트(G1)가 아니다.** 결정적 데이터(시드·픽스처)가 없는 동안은 빨간불이
+앱 회귀인지 데이터 변동인지 구분되지 않아 차단 게이트가 될 수 없다. G1은 계속 빠른 검사(타입·린트)만 둔다.
