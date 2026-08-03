@@ -39,6 +39,9 @@ export function createNextDriver(page: Page): JourneyDriver {
       async listedTitles(): Promise<string[]> {
         return notImplemented("jobPostingList.listedTitles");
       },
+      async listedCompanies(): Promise<string[]> {
+        return notImplemented("jobPostingList.listedCompanies");
+      },
       async totalPages(): Promise<number> {
         return notImplemented("jobPostingList.totalPages");
       },
@@ -48,8 +51,14 @@ export function createNextDriver(page: Page): JourneyDriver {
       async searchBySkill() {
         notImplemented("jobPostingList.searchBySkill");
       },
-      async clearSearch() {
-        notImplemented("jobPostingList.clearSearch");
+      async searchByCompany() {
+        notImplemented("jobPostingList.searchByCompany");
+      },
+      async filterByMinCareer() {
+        notImplemented("jobPostingList.filterByMinCareer");
+      },
+      async clearFilters() {
+        notImplemented("jobPostingList.clearFilters");
       },
       async openFirstListed() {
         notImplemented("jobPostingList.openFirstListed");
@@ -60,11 +69,17 @@ export function createNextDriver(page: Page): JourneyDriver {
       async title(): Promise<string> {
         return notImplemented("jobPostingDetail.title");
       },
+      async companyName(): Promise<string> {
+        return notImplemented("jobPostingDetail.companyName");
+      },
       async reviewCountInSummary(): Promise<number> {
         return notImplemented("jobPostingDetail.reviewCountInSummary");
       },
-      async listedReviewCount(): Promise<number> {
-        return notImplemented("jobPostingDetail.listedReviewCount");
+      async listedReviewSummaries(): Promise<string[]> {
+        return notImplemented("jobPostingDetail.listedReviewSummaries");
+      },
+      async goToReviewPage() {
+        notImplemented("jobPostingDetail.goToReviewPage");
       },
     },
 

@@ -13,7 +13,9 @@ test("목록에서 공고를 열면 그 공고의 상세가 나온다", async ({
     .toBeGreaterThan(0);
 
   const [firstTitle] = await app.jobPostingList.listedTitles();
+  const [firstCompany] = await app.jobPostingList.listedCompanies();
   expect(firstTitle, "목록의 첫 공고에 제목이 있다").toBeTruthy();
+  expect(firstCompany, "목록의 첫 공고에 회사명이 있다").toBeTruthy();
 
   await app.jobPostingList.openFirstListed();
 
@@ -26,6 +28,11 @@ test("목록에서 공고를 열면 그 공고의 상세가 나온다", async ({
       message: "목록에서 고른 그 공고의 상세다",
     })
     .toBe(firstTitle);
+
+  expect(
+    await app.jobPostingDetail.companyName(),
+    "상세가 말하는 회사가 목록에서 본 회사와 같다",
+  ).toBe(firstCompany);
 });
 
 test("리뷰가 달린 회사의 공고 상세에는 리뷰가 나열된다", async ({
@@ -43,11 +50,33 @@ test("리뷰가 달린 회사의 공고 상세에는 리뷰가 나열된다", as
     .toBeGreaterThan(0);
 
   const summarised = await app.jobPostingDetail.reviewCountInSummary();
-  const listed = await app.jobPostingDetail.listedReviewCount();
+  const listed = await app.jobPostingDetail.listedReviewSummaries();
 
-  expect(listed, "리뷰가 실제로 나열된다").toBeGreaterThan(0);
+  expect(listed.length, "리뷰가 실제로 나열된다").toBeGreaterThan(0);
   expect(
-    listed,
+    listed.length,
     "한 화면에 나열되는 리뷰는 요약이 말하는 전체 수를 넘지 않는다",
   ).toBeLessThanOrEqual(summarised);
+});
+
+test("리뷰의 다음 페이지는 다른 리뷰를 준다", async ({ app, data }) => {
+  await app.visitJobPosting(data.postingWithPagedReviews);
+
+  await expect.poll(() => app.currentRoute()).toBe("jobPostingDetail");
+  await expect
+    .poll(async () => (await app.jobPostingDetail.listedReviewSummaries()).length)
+    .toBeGreaterThan(0);
+
+  const firstPage = await app.jobPostingDetail.listedReviewSummaries();
+
+  await app.jobPostingDetail.goToReviewPage(2);
+
+  await expect
+    .poll(() => app.jobPostingDetail.listedReviewSummaries(), {
+      message: "리뷰 2페이지는 1페이지와 다른 항목을 준다",
+    })
+    .not.toEqual(firstPage);
+
+  const secondPage = await app.jobPostingDetail.listedReviewSummaries();
+  expect(secondPage.length, "리뷰 2페이지도 비어 있지 않다").toBeGreaterThan(0);
 });

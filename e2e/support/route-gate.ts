@@ -31,6 +31,10 @@ export function withRouteGate(driver: JourneyDriver): JourneyDriver {
         await ensure("jobPostings", "jobPostingList.listedTitles()");
         return driver.jobPostingList.listedTitles();
       },
+      async listedCompanies() {
+        await ensure("jobPostings", "jobPostingList.listedCompanies()");
+        return driver.jobPostingList.listedCompanies();
+      },
       async totalPages() {
         await ensure("jobPostings", "jobPostingList.totalPages()");
         return driver.jobPostingList.totalPages();
@@ -43,9 +47,17 @@ export function withRouteGate(driver: JourneyDriver): JourneyDriver {
         await ensure("jobPostings", "jobPostingList.searchBySkill()");
         return driver.jobPostingList.searchBySkill(skill);
       },
-      async clearSearch() {
-        await ensure("jobPostings", "jobPostingList.clearSearch()");
-        return driver.jobPostingList.clearSearch();
+      async searchByCompany(company) {
+        await ensure("jobPostings", "jobPostingList.searchByCompany()");
+        return driver.jobPostingList.searchByCompany(company);
+      },
+      async filterByMinCareer(years) {
+        await ensure("jobPostings", "jobPostingList.filterByMinCareer()");
+        return driver.jobPostingList.filterByMinCareer(years);
+      },
+      async clearFilters() {
+        await ensure("jobPostings", "jobPostingList.clearFilters()");
+        return driver.jobPostingList.clearFilters();
       },
       async openFirstListed() {
         await ensure("jobPostings", "jobPostingList.openFirstListed()");
@@ -58,6 +70,10 @@ export function withRouteGate(driver: JourneyDriver): JourneyDriver {
         await ensure("jobPostingDetail", "jobPostingDetail.title()");
         return driver.jobPostingDetail.title();
       },
+      async companyName() {
+        await ensure("jobPostingDetail", "jobPostingDetail.companyName()");
+        return driver.jobPostingDetail.companyName();
+      },
       async reviewCountInSummary() {
         await ensure(
           "jobPostingDetail",
@@ -65,9 +81,16 @@ export function withRouteGate(driver: JourneyDriver): JourneyDriver {
         );
         return driver.jobPostingDetail.reviewCountInSummary();
       },
-      async listedReviewCount() {
-        await ensure("jobPostingDetail", "jobPostingDetail.listedReviewCount()");
-        return driver.jobPostingDetail.listedReviewCount();
+      async listedReviewSummaries() {
+        await ensure(
+          "jobPostingDetail",
+          "jobPostingDetail.listedReviewSummaries()",
+        );
+        return driver.jobPostingDetail.listedReviewSummaries();
+      },
+      async goToReviewPage(page) {
+        await ensure("jobPostingDetail", "jobPostingDetail.goToReviewPage()");
+        return driver.jobPostingDetail.goToReviewPage(page);
       },
     },
 

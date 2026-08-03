@@ -46,6 +46,9 @@ function targetProjects(wiring: WiringName, baseURL: string) {
 export default defineConfig<WiringOptions>({
   testDir: "./e2e",
   fullyParallel: true,
+  // 겨누는 것이 실환경이다 — 앱 스스로 "지나치게 많은 api 호출 시 일시적으로 차단될 수 있다"고
+  // 경고한다. 병렬을 낮게 잡아 대상 서비스를 두드리지 않는다.
+  workers: 2,
   forbidOnly: !!process.env.CI,
   reporter: process.env.CI ? [["list"], ["html", { open: "never" }]] : "list",
   use: {

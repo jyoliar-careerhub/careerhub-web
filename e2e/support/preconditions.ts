@@ -13,12 +13,27 @@ import type { WiringName } from "./options";
 export interface PreconditionData {
   /** 결과를 좁힐 수 있다고 확인된 기술스택 이름. */
   searchableSkill: string;
+  /** 검색으로 찾을 수 있다고 확인된 회사 이름. */
+  searchableCompany: string;
+  /** 결과를 좁힐 수 있다고 확인된 최소 경력(년). */
+  filterableMinCareer: number;
   /** 회사 리뷰가 달려 있다고 확인된 공고. */
   postingWithReviews: PostingRef;
+  /** 리뷰가 두 페이지 이상 나온다고 확인된 공고. */
+  postingWithPagedReviews: PostingRef;
 }
 
 /** 목록이 두 페이지 이상 나오려면 최소 이만큼은 있어야 한다(기존 앱의 한 페이지 크기). */
 export const MIN_POSTINGS_FOR_PAGINATION = 16;
+
+/** 리뷰가 두 페이지 이상 나오려면 최소 이만큼은 있어야 한다(기존 앱의 리뷰 한 페이지 크기). */
+export const MIN_REVIEWS_FOR_PAGINATION = 10;
+
+/** 회사는 사이트마다 따로 존재한다 — 백엔드가 받는 좌표는 (사이트, 회사명) 짝이다. */
+export interface SiteCompany {
+  site: string;
+  companyName: string;
+}
 
 /** 기존 앱이 백엔드에 보내는 질의의 빈 값. 필터를 안 건 상태다. */
 export const EMPTY_QUERY = {
@@ -27,7 +42,7 @@ export const EMPTY_QUERY = {
   tagIds: [] as unknown[],
   minCareer: null as number | null,
   maxCareer: null as number | null,
-  companies: [] as unknown[],
+  companies: [] as SiteCompany[],
 };
 
 export type PostingQuery = typeof EMPTY_QUERY;

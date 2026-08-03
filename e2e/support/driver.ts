@@ -36,23 +36,35 @@ export interface AuthEntryPoint {
 export interface JobPostingListScreen {
   /** 지금 화면에 나열된 공고들의 제목. 순서는 화면 순서. */
   listedTitles(): Promise<string[]>;
+  /** 나열된 공고들의 회사명. 제목과 같은 순서 — 목록과 상세가 이어지는지 볼 때 쓴다. */
+  listedCompanies(): Promise<string[]>;
   /** 지금 조건에서 결과가 몇 페이지인가. "좁아졌다"를 구체값 없이 말하는 척도다. */
   totalPages(): Promise<number>;
   goToPage(page: number): Promise<void>;
-  /** 기술스택으로 결과를 좁힌다. 키워드는 전제 검사가 실데이터에서 발견해 준다. */
+  /** 기술스택으로 결과를 좁힌다. 값은 전제 검사가 실데이터에서 발견해 준다. */
   searchBySkill(skill: string): Promise<void>;
-  /** 걸어 둔 기술스택 조건을 모두 푼다. */
-  clearSearch(): Promise<void>;
+  /** 회사 이름으로 결과를 좁힌다. */
+  searchByCompany(company: string): Promise<void>;
+  /** 최소 경력으로 결과를 좁힌다. */
+  filterByMinCareer(years: number): Promise<void>;
+  /** 걸어 둔 조건을 모두 푼다. */
+  clearFilters(): Promise<void>;
   /** 나열된 첫 공고의 상세로 들어간다. */
   openFirstListed(): Promise<void>;
 }
 
 export interface JobPostingDetailScreen {
   title(): Promise<string>;
+  /** 이 공고를 낸 회사의 이름. */
+  companyName(): Promise<string>;
   /** 요약이 말하는 회사 리뷰 수. 리뷰가 없으면 0. */
   reviewCountInSummary(): Promise<number>;
-  /** 화면에 실제로 나열된 리뷰 수. */
-  listedReviewCount(): Promise<number>;
+  /**
+   * 화면에 나열된 리뷰들. 각 문자열은 **한 리뷰를 구별하기 위한 표현**일 뿐이므로
+   * 내용 자체를 어서션하지 않는다 — 개수를 세거나 페이지끼리 비교하는 데만 쓴다.
+   */
+  listedReviewSummaries(): Promise<string[]>;
+  goToReviewPage(page: number): Promise<void>;
 }
 
 export interface LoginScreen {
