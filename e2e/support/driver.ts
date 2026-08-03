@@ -25,6 +25,19 @@ export interface PostingRef {
   postingId: string;
 }
 
+/**
+ * 목록에 나열된 공고 하나가 말해 주는 것.
+ *
+ * 레이아웃이 아니라 **공고가 담고 있는 정보**다 — 어느 디자인이든 목록은 이걸 말해야 목록이다.
+ * 시나리오는 여기서 검색어를 얻는다. 값을 명세에 박지 않고 화면이 준 것을 되쓰므로,
+ * 데이터가 갈려도 명세는 흔들리지 않는다.
+ */
+export interface ListedJobPosting {
+  title: string;
+  companyName: string;
+  skills: string[];
+}
+
 /** 로그인 화면이 제시하는 인증 수단 진입점 하나. */
 export interface AuthEntryPoint {
   /** 진입점이 향하는 곳. 값 자체를 어서션하지 않는다 — 앱 밖인지만 본다. */
@@ -34,10 +47,8 @@ export interface AuthEntryPoint {
 }
 
 export interface JobPostingListScreen {
-  /** 지금 화면에 나열된 공고들의 제목. 순서는 화면 순서. */
-  listedTitles(): Promise<string[]>;
-  /** 나열된 공고들의 회사명. 제목과 같은 순서 — 목록과 상세가 이어지는지 볼 때 쓴다. */
-  listedCompanies(): Promise<string[]>;
+  /** 지금 화면에 나열된 공고들. 순서는 화면 순서. */
+  listedJobPostings(): Promise<ListedJobPosting[]>;
   /** 지금 조건에서 결과가 몇 페이지인가. "좁아졌다"를 구체값 없이 말하는 척도다. */
   totalPages(): Promise<number>;
   goToPage(page: number): Promise<void>;

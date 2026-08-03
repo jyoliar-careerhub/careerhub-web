@@ -27,13 +27,9 @@ export function withRouteGate(driver: JourneyDriver): JourneyDriver {
     currentRoute: () => driver.currentRoute(),
 
     jobPostingList: {
-      async listedTitles() {
-        await ensure("jobPostings", "jobPostingList.listedTitles()");
-        return driver.jobPostingList.listedTitles();
-      },
-      async listedCompanies() {
-        await ensure("jobPostings", "jobPostingList.listedCompanies()");
-        return driver.jobPostingList.listedCompanies();
+      async listedJobPostings() {
+        await ensure("jobPostings", "jobPostingList.listedJobPostings()");
+        return driver.jobPostingList.listedJobPostings();
       },
       async totalPages() {
         await ensure("jobPostings", "jobPostingList.totalPages()");

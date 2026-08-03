@@ -9,13 +9,12 @@ import { expect, test } from "../support/fixtures";
 test("목록에서 공고를 열면 그 공고의 상세가 나온다", async ({ app }) => {
   await app.visit("jobPostings");
   await expect
-    .poll(async () => (await app.jobPostingList.listedTitles()).length)
+    .poll(async () => (await app.jobPostingList.listedJobPostings()).length)
     .toBeGreaterThan(0);
 
-  const [firstTitle] = await app.jobPostingList.listedTitles();
-  const [firstCompany] = await app.jobPostingList.listedCompanies();
-  expect(firstTitle, "목록의 첫 공고에 제목이 있다").toBeTruthy();
-  expect(firstCompany, "목록의 첫 공고에 회사명이 있다").toBeTruthy();
+  const [first] = await app.jobPostingList.listedJobPostings();
+  expect(first?.title, "목록의 첫 공고에 제목이 있다").toBeTruthy();
+  expect(first?.companyName, "목록의 첫 공고에 회사명이 있다").toBeTruthy();
 
   await app.jobPostingList.openFirstListed();
 
@@ -27,12 +26,12 @@ test("목록에서 공고를 열면 그 공고의 상세가 나온다", async ({
     .poll(() => app.jobPostingDetail.title(), {
       message: "목록에서 고른 그 공고의 상세다",
     })
-    .toBe(firstTitle);
+    .toBe(first?.title);
 
   expect(
     await app.jobPostingDetail.companyName(),
     "상세가 말하는 회사가 목록에서 본 회사와 같다",
-  ).toBe(firstCompany);
+  ).toBe(first?.companyName);
 });
 
 test("리뷰가 달린 회사의 공고 상세에는 리뷰가 나열된다", async ({

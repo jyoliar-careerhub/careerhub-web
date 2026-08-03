@@ -1,6 +1,11 @@
 import type { Page } from "@playwright/test";
 
-import type { AuthEntryPoint, JourneyDriver, Route } from "../../support/driver";
+import type {
+  AuthEntryPoint,
+  JourneyDriver,
+  ListedJobPosting,
+  Route,
+} from "../../support/driver";
 
 /**
  * 새 앱(careerhub-web)용 배선 — **아직 구현하지 않는다.**
@@ -36,11 +41,8 @@ export function createNextDriver(page: Page): JourneyDriver {
     },
 
     jobPostingList: {
-      async listedTitles(): Promise<string[]> {
-        return notImplemented("jobPostingList.listedTitles");
-      },
-      async listedCompanies(): Promise<string[]> {
-        return notImplemented("jobPostingList.listedCompanies");
+      async listedJobPostings(): Promise<ListedJobPosting[]> {
+        return notImplemented("jobPostingList.listedJobPostings");
       },
       async totalPages(): Promise<number> {
         return notImplemented("jobPostingList.totalPages");

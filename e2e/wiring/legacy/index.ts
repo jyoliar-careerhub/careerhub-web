@@ -38,6 +38,11 @@ function pageLabel(page: number): string {
   return page < 10 ? `0${page}` : String(page);
 }
 
+/** 기존 앱은 목록 항목을 ` · `로 이어 붙여 그린다 — 구분자와 공백(NBSP 포함)을 걷어낸다. */
+function stripListSeparator(text: string): string {
+  return text.replace(/ /g, " ").replace(/^[\s·]+/, "").trim();
+}
+
 function firstNumberIn(text: string): number {
   const matched = /\d+/.exec(text);
   return matched ? Number.parseInt(matched[0], 10) : 0;
@@ -140,14 +145,24 @@ export function createLegacyDriver(page: Page): JourneyDriver {
     },
 
     jobPostingList: {
-      async listedTitles() {
-        const titles = await cards().locator("h2").allTextContents();
-        return titles.map((title) => title.trim());
-      },
+      async listedJobPostings() {
+        // 카드 하나에서 세 가지를 한 번에 긁는다 — 여러 번 물으면 그 사이에 목록이 갱신될 수 있다.
+        const raw = await cards().evaluateAll((elements) =>
+          elements.map((element) => ({
+            title: element.querySelector("h2")?.textContent ?? "",
+            companyName: element.querySelector(".jCplrW")?.textContent ?? "",
+            // 기술스택과 직무 분류가 같은 클래스를 쓴다 — 기존 앱은 색으로만 구분한다.
+            skills: Array.from(
+              element.querySelectorAll('ul[style*="brown"] li'),
+            ).map((item) => item.textContent ?? ""),
+          })),
+        );
 
-      async listedCompanies() {
-        const companies = await cards().locator(".jCplrW").allTextContents();
-        return companies.map((company) => company.trim());
+        return raw.map((posting) => ({
+          title: posting.title.trim(),
+          companyName: posting.companyName.trim(),
+          skills: posting.skills.map(stripListSeparator),
+        }));
       },
 
       /** 마지막 페이지의 번호가 곧 전체 페이지 수다. 읽고 나서 1페이지로 되돌린다. */
