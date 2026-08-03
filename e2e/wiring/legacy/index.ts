@@ -2,6 +2,7 @@ import type { Locator, Page } from "@playwright/test";
 
 import type {
   AuthEntryPoint,
+  ConditionSearch,
   EntryRoute,
   JourneyDriver,
   Route,
@@ -20,6 +21,10 @@ import type {
  *   탭이 열리면 그쪽을 따라가고 아니면 그대로 둔다. 어느 쪽이든 시나리오는 같다.
  * - **페이지 번호를 창(window)으로 잘라 그린다** — 마지막 페이지에서는 1번 링크가 안 보인다.
  * - **정보를 문장으로 그린다**(`경력 3~10` · `(77개 리뷰)`) — 값으로 되돌리는 것은 배선의 일이다.
+ * - **검색 후보를 청해야 준다** — 입력만으로는 안 뜨고 엔터(또는 돋보기)를 눌러야 후보가 나온다.
+ *   게다가 기술스택 후보의 원본 목록이 화면 뒤에서 늦게 도착한다 — 잡힐 때까지 다시 청한다.
+ * - **직군 카테고리는 조건 칩이 아니라 선택 상태로 표시된다** — 걸린 조건을 한 목록으로 모으는 것도,
+ *   '전체'로 되돌리는 것도 여기서 흡수한다.
  */
 
 const HASH_PATHS: Record<EntryRoute, string> = {
@@ -32,6 +37,9 @@ const POPUP_TIMEOUT_MS = 5_000;
 const SETTLE_INTERVAL_MS = 200;
 const SETTLE_ATTEMPTS = 25;
 const CLICK_ATTEMPTS = 5;
+/** 후보를 다시 청하는 횟수 × 한 번 청하고 기다리는 횟수. */
+const CANDIDATE_REQUESTS = 3;
+const CANDIDATE_WAITS = 5;
 
 /** 기존 앱은 한 자리 페이지 번호를 `01`처럼 채워 그린다. */
 function pageLabel(page: number): string {
@@ -41,9 +49,14 @@ function pageLabel(page: number): string {
 /** 기존 앱은 목록 항목을 ` · `로 이어 붙여 그린다 — 구분자와 공백(NBSP 포함)을 걷어낸다. */
 function stripListSeparator(text: string): string {
   return text
-    .replace(/ /g, " ")
+    .replace(/ /g, " ")
     .replace(/^[\s·]+/, "")
     .trim();
+}
+
+/** 여러 줄로 그려진 표기를 한 줄로 되돌린다(후보·조건 표기는 줄바꿈을 품고 온다). */
+function normalize(text: string): string {
+  return text.replace(/ /g, " ").replace(/\s+/g, " ").trim();
 }
 
 function firstNumberIn(text: string): number {
@@ -74,8 +87,15 @@ export function createLegacyDriver(page: Page): JourneyDriver {
   const companyQuery = (): Locator =>
     active.locator(".eYcCqs").filter({ has: active.getByPlaceholder(/^기업명/) });
   const careerQuery = (): Locator => active.locator(".eYcCbP");
-  /** 걸어 둔 조건은 패널 종류와 무관하게 같은 모양의 칩으로 그려진다. */
-  const selectedFilters = (): Locator => active.locator(".btn_stack");
+  /** 걸어 둔 조건은 패널 종류와 무관하게 같은 모양의 칩으로 그려진다(직군은 예외 — 아래 참조). */
+  const conditionChips = (): Locator => active.locator(".btn_stack > span");
+  /** 직군 카테고리 버튼들. '전체'(초기화) 버튼만 다른 클래스를 달고 있어 이것으로 갈라낸다. */
+  const categoryButtons = (): Locator =>
+    active.locator(".caregoryQuery .list_job_btn_wrap button:not(.sc-pVTFL)");
+  const clearCategoryButton = (): Locator =>
+    active.locator(".caregoryQuery button.sc-pVTFL");
+  const selectedCategoryButtons = (): Locator =>
+    categoryButtons().and(active.locator(".selected"));
 
   /**
    * 목록이 갱신되는 동안 페이지네이션이 통째로 다시 그려진다(질의가 바뀌면 개수부터 다시 받는다).
@@ -118,16 +138,49 @@ export function createLegacyDriver(page: Page): JourneyDriver {
     if ((await one.count()) > 0) await clickWhenSettled(one);
   };
 
-  /** 검색 상자에 넣고 제안 목록에서 고른다 — 기존 앱의 검색은 자동완성 선택이다. */
-  const searchAndPick = async (
-    panel: Locator,
+  /**
+   * 검색 상자 하나를 조건 축으로 감싼다.
+   *
+   * 후보는 `ul li span`으로만 그려진다 — 회사 검색이 결과 없음을 알릴 때 쓰는
+   * "검색 결과가 없습니다." 항목은 `span`이 없어 자연히 후보에서 빠진다.
+   */
+  const conditionSearch = (
+    panel: () => Locator,
     placeholder: RegExp,
-    keyword: string,
-  ): Promise<void> => {
-    const input = panel.getByPlaceholder(placeholder);
-    await input.fill(keyword);
-    await input.press("Enter");
-    await panel.getByText(keyword, { exact: true }).first().click();
+  ): ConditionSearch => {
+    const candidates = (): Locator => panel().locator("ul li span");
+
+    return {
+      async type(keyword) {
+        const input = panel().getByPlaceholder(placeholder);
+        await input.fill(keyword);
+        // 엔터가 후보를 청하는 신호다. 원본 목록이 늦게 오면 첫 청은 빈손이라 다시 청한다.
+        for (let request = 0; request < CANDIDATE_REQUESTS; request += 1) {
+          await input.press("Enter");
+          for (let wait = 0; wait < CANDIDATE_WAITS; wait += 1) {
+            if ((await candidates().count()) > 0) return;
+            await active.waitForTimeout(SETTLE_INTERVAL_MS);
+          }
+        }
+      },
+
+      async candidates() {
+        return (await candidates().allTextContents()).map(normalize);
+      },
+
+      async choose(candidate) {
+        const labels = (await candidates().allTextContents()).map(normalize);
+        const index = labels.indexOf(candidate);
+        if (index < 0) {
+          throw new Error(
+            `제시되지 않은 후보를 골랐다: '${candidate}' (제시된 것: ${labels.join(" | ")})`,
+          );
+        }
+        // 클릭 핸들러는 항목에 붙어 있고 표기는 그 안에 있다 — 표기를 눌러도 항목이 받는다.
+        await candidates().nth(index).click();
+        await settlePagination();
+      },
+    };
   };
 
   return {
@@ -147,6 +200,12 @@ export function createLegacyDriver(page: Page): JourneyDriver {
       return "unknown";
     },
 
+    async reopenCurrent() {
+      // 기존 앱은 걸린 조건을 주소(해시 뒤 질의문자열)에 실어 두고, 열 때 되읽는다.
+      await active.reload();
+      await settlePagination();
+    },
+
     jobPostingList: {
       async listedJobPostings() {
         // 카드 하나에서 필요한 것을 한 번에 긁는다 — 여러 번 물으면 그 사이에 목록이 갱신될 수 있다.
@@ -158,6 +217,9 @@ export function createLegacyDriver(page: Page): JourneyDriver {
             skills: Array.from(
               element.querySelectorAll('ul[style*="brown"] li'),
             ).map((item) => item.textContent ?? ""),
+            categories: Array.from(
+              element.querySelectorAll('ul[style*="yellowgreen"] li'),
+            ).map((item) => item.textContent ?? ""),
             career:
               element.querySelector('ul li[style*="teal"]')?.textContent ?? "",
             review: element.querySelector(".rating .num")?.textContent ?? "",
@@ -168,6 +230,7 @@ export function createLegacyDriver(page: Page): JourneyDriver {
           title: posting.title.trim(),
           companyName: posting.companyName.trim(),
           skills: posting.skills.map(stripListSeparator),
+          categories: posting.categories.map(stripListSeparator),
           minCareer: parseMinCareer(posting.career.trim()),
           reviewCount: firstNumberIn(posting.review),
         }));
@@ -193,6 +256,14 @@ export function createLegacyDriver(page: Page): JourneyDriver {
         return total;
       },
 
+      async currentPage() {
+        await settlePagination();
+        const current = paginate().locator("span.bold");
+        // 페이지가 하나뿐이면 번호를 안 그린다 — 그때도 보고 있는 것은 1페이지다.
+        if ((await current.count()) === 0) return 1;
+        return firstNumberIn((await current.first().textContent()) ?? "") || 1;
+      },
+
       async goToPage(target) {
         if (target === 1) {
           await goToFirstPage();
@@ -203,27 +274,57 @@ export function createLegacyDriver(page: Page): JourneyDriver {
         );
       },
 
-      async searchBySkill(skill) {
-        await searchAndPick(techStack(), /^기술스택/, skill);
+      skillSearch: conditionSearch(techStack, /^기술스택/),
+      companySearch: conditionSearch(companyQuery, /^기업명/),
+
+      async jobCategories() {
+        return (await categoryButtons().allTextContents()).map(normalize);
       },
 
-      async searchByCompany(company) {
-        await searchAndPick(companyQuery(), /^기업명/, company);
+      async chooseJobCategory(category) {
+        const labels = (await categoryButtons().allTextContents()).map(
+          normalize,
+        );
+        const index = labels.indexOf(category);
+        if (index < 0) {
+          throw new Error(
+            `제시되지 않은 직군 카테고리를 골랐다: '${category}' (제시된 것: ${labels.length}개)`,
+          );
+        }
+        await clickWhenSettled(categoryButtons().nth(index));
+        await settlePagination();
       },
 
       async filterByMinCareer(years) {
-        // 경력 상자는 '년 이상'이 먼저다. 입력만으로 질의가 갱신된다(자동완성 없음).
+        // 경력 상자는 '년 이상'이 먼저다. 입력만으로 질의가 갱신된다(후보 제시가 없는 축).
         await careerQuery()
           .locator('input[type="number"]')
           .first()
           .fill(String(years));
+        await settlePagination();
+      },
+
+      async appliedConditions() {
+        // 직군은 칩이 아니라 버튼의 선택 상태로 표시된다 — 축이 달라도 한 목록으로 모은다.
+        const categories = await selectedCategoryButtons().allTextContents();
+        const chips = await conditionChips().allTextContents();
+        return [...categories, ...chips].map(normalize);
       },
 
       async clearFilters() {
-        // 선택된 조건을 하나씩 걷어낸다. 조건 수는 유한하므로 상한을 둬 무한 루프를 막는다.
+        // '전체'가 직군 선택을 통째로 되돌린다. 나머지 축은 칩을 하나씩 걷어낸다.
+        if ((await selectedCategoryButtons().count()) > 0) {
+          await clickWhenSettled(clearCategoryButton().first());
+          await settlePagination();
+        }
+        const chips = active.locator(".btn_stack");
+        // 조건 수는 유한하므로 상한을 둬 무한 루프를 막는다.
         for (let attempt = 0; attempt < 10; attempt += 1) {
-          if ((await selectedFilters().count()) === 0) return;
-          await selectedFilters().first().click();
+          if ((await chips.count()) === 0) {
+            await settlePagination();
+            return;
+          }
+          await chips.first().click();
         }
         throw new Error("걸어 둔 조건이 걷히지 않는다 — 배선을 확인한다.");
       },

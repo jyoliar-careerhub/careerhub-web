@@ -2,6 +2,7 @@ import type { Page } from "@playwright/test";
 
 import type {
   AuthEntryPoint,
+  ConditionSearch,
   JourneyDriver,
   ListedJobPosting,
   Route,
@@ -23,6 +24,20 @@ function notImplemented(what: string): never {
   );
 }
 
+function conditionSearch(axis: string): ConditionSearch {
+  return {
+    async type() {
+      notImplemented(`jobPostingList.${axis}.type`);
+    },
+    async candidates(): Promise<string[]> {
+      return notImplemented(`jobPostingList.${axis}.candidates`);
+    },
+    async choose() {
+      notImplemented(`jobPostingList.${axis}.choose`);
+    },
+  };
+}
+
 export function createNextDriver(page: Page): JourneyDriver {
   // page는 구현이 채워질 때 쓰인다. 지금은 인터페이스 형태만 고정한다.
   void page;
@@ -36,6 +51,10 @@ export function createNextDriver(page: Page): JourneyDriver {
       return notImplemented("currentRoute");
     },
 
+    async reopenCurrent() {
+      notImplemented("reopenCurrent");
+    },
+
     jobPostingList: {
       async listedJobPostings(): Promise<ListedJobPosting[]> {
         return notImplemented("jobPostingList.listedJobPostings");
@@ -43,17 +62,27 @@ export function createNextDriver(page: Page): JourneyDriver {
       async totalPages(): Promise<number> {
         return notImplemented("jobPostingList.totalPages");
       },
+      async currentPage(): Promise<number> {
+        return notImplemented("jobPostingList.currentPage");
+      },
       async goToPage() {
         notImplemented("jobPostingList.goToPage");
       },
-      async searchBySkill() {
-        notImplemented("jobPostingList.searchBySkill");
+
+      skillSearch: conditionSearch("skillSearch"),
+      companySearch: conditionSearch("companySearch"),
+
+      async jobCategories(): Promise<string[]> {
+        return notImplemented("jobPostingList.jobCategories");
       },
-      async searchByCompany() {
-        notImplemented("jobPostingList.searchByCompany");
+      async chooseJobCategory() {
+        notImplemented("jobPostingList.chooseJobCategory");
       },
       async filterByMinCareer() {
         notImplemented("jobPostingList.filterByMinCareer");
+      },
+      async appliedConditions(): Promise<string[]> {
+        return notImplemented("jobPostingList.appliedConditions");
       },
       async clearFilters() {
         notImplemented("jobPostingList.clearFilters");

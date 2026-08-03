@@ -1,4 +1,4 @@
-import type { JourneyDriver, Route } from "./driver";
+import type { ConditionSearch, JourneyDriver, Route } from "./driver";
 
 /**
  * 라우트 게이트 — **지금 서 있는 화면의 메서드만 부를 수 있게** 한다.
@@ -21,9 +21,29 @@ export function withRouteGate(driver: JourneyDriver): JourneyDriver {
     );
   };
 
+  /** 조건 검색은 축이 달라도 모양이 같다 — 게이트도 한 번만 쓴다. */
+  const gatedSearch = (
+    search: ConditionSearch,
+    name: string,
+  ): ConditionSearch => ({
+    async type(keyword) {
+      await ensure("jobPostings", `jobPostingList.${name}.type()`);
+      return search.type(keyword);
+    },
+    async candidates() {
+      await ensure("jobPostings", `jobPostingList.${name}.candidates()`);
+      return search.candidates();
+    },
+    async choose(candidate) {
+      await ensure("jobPostings", `jobPostingList.${name}.choose()`);
+      return search.choose(candidate);
+    },
+  });
+
   return {
     visit: (route) => driver.visit(route),
     currentRoute: () => driver.currentRoute(),
+    reopenCurrent: () => driver.reopenCurrent(),
 
     jobPostingList: {
       async listedJobPostings() {
@@ -34,21 +54,36 @@ export function withRouteGate(driver: JourneyDriver): JourneyDriver {
         await ensure("jobPostings", "jobPostingList.totalPages()");
         return driver.jobPostingList.totalPages();
       },
+      async currentPage() {
+        await ensure("jobPostings", "jobPostingList.currentPage()");
+        return driver.jobPostingList.currentPage();
+      },
       async goToPage(page) {
         await ensure("jobPostings", "jobPostingList.goToPage()");
         return driver.jobPostingList.goToPage(page);
       },
-      async searchBySkill(skill) {
-        await ensure("jobPostings", "jobPostingList.searchBySkill()");
-        return driver.jobPostingList.searchBySkill(skill);
+
+      skillSearch: gatedSearch(driver.jobPostingList.skillSearch, "skillSearch"),
+      companySearch: gatedSearch(
+        driver.jobPostingList.companySearch,
+        "companySearch",
+      ),
+
+      async jobCategories() {
+        await ensure("jobPostings", "jobPostingList.jobCategories()");
+        return driver.jobPostingList.jobCategories();
       },
-      async searchByCompany(company) {
-        await ensure("jobPostings", "jobPostingList.searchByCompany()");
-        return driver.jobPostingList.searchByCompany(company);
+      async chooseJobCategory(category) {
+        await ensure("jobPostings", "jobPostingList.chooseJobCategory()");
+        return driver.jobPostingList.chooseJobCategory(category);
       },
       async filterByMinCareer(years) {
         await ensure("jobPostings", "jobPostingList.filterByMinCareer()");
         return driver.jobPostingList.filterByMinCareer(years);
+      },
+      async appliedConditions() {
+        await ensure("jobPostings", "jobPostingList.appliedConditions()");
+        return driver.jobPostingList.appliedConditions();
       },
       async clearFilters() {
         await ensure("jobPostings", "jobPostingList.clearFilters()");
