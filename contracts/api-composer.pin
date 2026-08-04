@@ -1,0 +1,16 @@
+# api-composer REST 계약의 공표 좌표 핀 (ADR-0014 · ADR-0020)
+#
+# 이 커밋이 "어느 계약으로 빌드됐나"를 git만으로 답하게 하는 파일이다.
+# 결합 대상은 가변 브랜치의 파일이나 실행 중인 서버가 아니라 provider가 발행한 불변 좌표다.
+#
+# 좌표 규약: 태그 prefix = 계약이 사는 디렉터리, 파일명은 고정 관례(openapi.yaml).
+#   tag=spec/api-composer/v0.2.0  →  spec/api-composer/openapi.yaml @ 그 태그
+# 따라서 좌표 하나에서 파일 위치가 파생된다 — 별도 경로 지식이 필요 없다.
+#
+# 핀을 올리는 법(사람이 한다 — 폴링·봇을 두지 않는다):
+#   1. tag 를 새 좌표로 바꾼다
+#   2. npm run gen:api
+#   3. 핀과 생성물을 같은 커밋에 담는다 (어긋나면 PR CI가 거부한다)
+
+repo=jyoliar-careerhub/careerhub-api-composer
+tag=spec/api-composer/v0.2.0

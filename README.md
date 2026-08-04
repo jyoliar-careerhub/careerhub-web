@@ -20,6 +20,42 @@ npm run check   # typecheck(tsc --noEmit) + lint(eslint, warning도 실패)
 
 이 커맨드가 CI 머지 게이트의 필수 체크가 된다(ops-workflow#10).
 
+## REST 계약 타입 — 백엔드 스펙에서 생성한다 (ADR-0014 · ADR-0020)
+
+REST 계약 타입을 손으로 선언하지 않는다. 손으로 쓴 선언은 백엔드 계약이 바뀌는 순간
+**거짓말하는 타입**이 되고, 컴파일러가 그 거짓말을 보증한다.
+
+결합 대상은 api-composer의 가변 브랜치나 실행 중인 서버가 아니라 **공표 좌표**(불변 태그)다.
+어느 좌표에 올라탈지는 이 저장소의 핀이 정한다.
+
+```
+contracts/api-composer.pin   # 핀 — 이 커밋이 어느 계약으로 빌드됐나 (repo · tag)
+scripts/gen-api-types.sh     # 핀 읽기 → 좌표 조립 → 스펙 fetch → 생성. 로컬과 CI가 같은 이것을 부른다
+src/lib/api/schema.d.ts      # 생성물 — 커밋한다. 손으로 고치지 않는다
+src/lib/api/client.ts        # 손으로 쓰는 부분: baseUrl · Bearer 토큰 부착 미들웨어
+src/lib/api/job-postings.ts  # 호출 — 계약 타입은 전부 생성물에서 온다
+```
+
+```bash
+npm run gen:api   # 핀한 좌표에서 타입 재생성 (약 1.5초)
+```
+
+**핀을 올리는 것은 사람이다.** 새 좌표가 났을 때 자동으로 따라 올라가는 폴링·봇은 두지 않는다.
+`contracts/api-composer.pin`의 `tag`를 바꾸고 `npm run gen:api` 후 **핀과 생성물을 같은 커밋에** 담는다.
+
+구조로 지키는 것들:
+
+- **스펙 원본은 커밋하지 않는다.** 사본을 두면 검사가 사본끼리의 정합만 보게 된다(ADR-0020).
+- **생성물은 커밋한다.** 빌드마다 생성하면 모든 CI 잡·프리뷰 배포·로컬 설치가 cross-repo
+  자격증명을 요구하게 되고, 생성기가 의존성 그래프에 들어온다.
+- **생성기는 `package.json`에 없다.** 버전을 고정해 `npx`로 격리 실행한다 — 앱의 typescript
+  버전과 충돌하지 않고, 생성기 업그레이드가 산출물을 재포맷해 게이트를 터뜨리지도 않는다.
+- **PR 게이트는 둘 다 돈다** — 재생성 diff(`spec-drift` job)와 typecheck(`check` job).
+  diff만으로는 "타입은 최신인데 앱이 안 맞음"을, typecheck만으로는 "타입이 낡음"을 못 잡는다.
+- **읽기 자격증명은 최소다.** 로컬은 개발자 자신의 `gh` 자격증명, CI는 Actions secret
+  `SPEC_READ_TOKEN`(api-composer 한 곳에 대한 `Contents: read` 하나). Actions가 주입하는
+  `GITHUB_TOKEN`은 자기 저장소로 한정되어 이 일을 못 한다.
+
 ## 스타일 규율 — 구조로 강제
 
 토큰(`@theme`)을 Tailwind 유틸리티로만 소비한다. 다음 이탈은 린트가 거부한다:
@@ -78,4 +114,4 @@ NEXT_BASE_URL=http://localhost:3000 npm run e2e  # 새 앱 배선이 채워진 �
   화면은 명세를 통과하지 못한다. 후보를 어떻게 그리는지(드롭다운·리스트)는 배선의 것이다.
 
 **이 명세는 아직 PR 게이트(G1)가 아니다.** 결정적 데이터(시드·픽스처)가 없는 동안은 빨간불이
-앱 회귀인지 데이터 변동인지 구분되지 않아 차단 게이트가 될 수 없다. G1은 계속 빠른 검사(타입·린트)만 둔다.
+앱 회귀인지 데이터 변동인지 구분되지 않아 차단 게이트가 될 수 없다. G1은 계속 빠른 검사(타입·린트·계약 드리프트)만 둔다.
