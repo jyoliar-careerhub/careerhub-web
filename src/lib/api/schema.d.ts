@@ -310,7 +310,7 @@ export interface components {
             site: string;
             postingId: string;
             title: string;
-            companyName: string | null;
+            companyName: string;
             skills: string[] | null;
             categories: string[] | null;
             imageUrl: string | null;
