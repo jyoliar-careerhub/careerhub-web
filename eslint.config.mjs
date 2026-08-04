@@ -99,6 +99,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // 계약 생성물 — 손으로 고치지 않으므로 린트가 고칠 것도 없다 (ADR-0014 · npm run gen:api).
+    "src/lib/api/schema.d.ts",
   ]),
 ]);
 
