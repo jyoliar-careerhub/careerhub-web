@@ -1,4 +1,4 @@
-import { encodeBase64Url } from "./base64url";
+import { decodeBase64Url, encodeBase64Url } from "./base64url";
 import { issuerConfig, SCOPES } from "./config";
 
 import type { IssuedTokens } from "./session";
@@ -88,21 +88,37 @@ interface TokenResponse {
   error_description?: unknown;
 }
 
-function nonceOf(idToken: string): string | null {
-  // id_token은 TLS로 token endpoint에서 직접 받았다 — 서명 검증은 프론트의 일이 아니고
-  // (ADR-0029), 여기서 보는 것은 이 응답이 우리가 시작한 왕복의 것인지뿐이다.
+/**
+ * id_token이 실어 온 nonce.
+ *
+ * id_token은 TLS로 token endpoint에서 직접 받았다 — 서명 검증은 프론트의 일이 아니고
+ * (ADR-0029), 여기서 보는 것은 이 응답이 우리가 시작한 왕복의 것인지뿐이다.
+ *
+ * 읽히지 않으면 `null`이 아니라 던진다. `null`을 돌려주면 "nonce가 없는 id_token"과
+ * "nonce가 다른 id_token"이 같은 실패로 뭉개져, 방어가 왜 걸렸는지 로그가 말하지 못한다.
+ */
+function nonceOf(idToken: string): string {
   const payload = idToken.split(".")[1];
-  if (payload === undefined) {
-    return null;
+  const decoded = payload === undefined ? null : decodeBase64Url(payload);
+  if (decoded === null) {
+    throw new AuthorizationError("id_token이 JWT가 아니다");
   }
+
+  let claims: unknown;
   try {
-    const json = atob(payload.replaceAll("-", "+").replaceAll("_", "/"));
-    const claims = JSON.parse(json) as Record<string, unknown>;
-    const nonce = claims["nonce"];
-    return typeof nonce === "string" ? nonce : null;
+    claims = JSON.parse(new TextDecoder().decode(decoded));
   } catch {
-    return null;
+    throw new AuthorizationError("id_token payload가 JSON이 아니다");
   }
+
+  const nonce =
+    typeof claims === "object" && claims !== null
+      ? (claims as Record<string, unknown>)["nonce"]
+      : undefined;
+  if (typeof nonce !== "string") {
+    throw new AuthorizationError("id_token에 nonce가 없다 — 왕복을 확인할 수 없다");
+  }
+  return nonce;
 }
 
 /**
@@ -164,7 +180,12 @@ export async function exchangeCode(
     throw new AuthorizationError("토큰 응답에 access_token이 없다");
   }
 
-  if (typeof body.id_token === "string" && nonceOf(body.id_token) !== transaction.nonce) {
+  // `openid` scope를 요청했으므로 id_token은 반드시 온다. 없는데 그냥 넘어가면
+  // nonce 방어가 조용히 꺼진 채로 로그인이 성공한다 — 방어가 사라진 줄도 모르게 된다.
+  if (typeof body.id_token !== "string" || body.id_token === "") {
+    throw new AuthorizationError("토큰 응답에 id_token이 없다 (openid scope를 요청했다)");
+  }
+  if (nonceOf(body.id_token) !== transaction.nonce) {
     throw new AuthorizationError("nonce 불일치 — 우리가 시작한 왕복이 아니다");
   }
 

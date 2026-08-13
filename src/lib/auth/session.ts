@@ -27,14 +27,16 @@ export interface IssuedTokens {
   expiresInSeconds: number | null;
 }
 
-function expiryOf(session: StoredSession): number | null {
-  return session.expiresAt ?? decodeClaims(session.accessToken)?.expiresAt ?? null;
+/**
+ * 만료 시각. 발급 응답의 `expires_in`이 없어도 토큰의 `exp`가 있다 —
+ * 그래서 "만료를 모르는 세션"이라는 상태가 없고, 죽은 토큰을 살아 있다고 볼 여지도 없다.
+ */
+function expiryOf(session: StoredSession): number {
+  return session.expiresAt ?? decodeClaims(session.accessToken).expiresAt;
 }
 
 function isExpiring(session: StoredSession): boolean {
-  const expiresAt = expiryOf(session);
-  // 만료를 알 수 없으면 살아 있다고 본다 — 모른다는 이유로 매 요청 갱신하지 않는다.
-  return expiresAt !== null && expiresAt - EXPIRY_MARGIN_MS <= Date.now();
+  return expiryOf(session) - EXPIRY_MARGIN_MS <= Date.now();
 }
 
 async function renew(session: StoredSession): Promise<StoredSession | null> {

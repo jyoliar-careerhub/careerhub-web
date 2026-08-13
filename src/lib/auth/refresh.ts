@@ -34,13 +34,20 @@ function toStoredSession(body: TokenResponse, previous: string): StoredSession {
     throw new Error("토큰 갱신 응답에 access_token이 없다.");
   }
 
+  // 회전이 없으면 응답이 refresh_token을 **빼고** 온다 — 그때는 쓰던 값이 계속 유효하다.
+  // 반면 실려 왔는데 문자열이 아니면 계약 위반이다. 그것을 "회전 없음"으로 뭉개면
+  // 다음 갱신에 죽은 토큰을 보내고, 사용자에게는 원인 모를 로그아웃으로 보인다.
   const rotated = body.refresh_token;
+  if (rotated !== undefined && (typeof rotated !== "string" || rotated === "")) {
+    throw new Error("토큰 갱신 응답의 refresh_token이 비어 있거나 문자열이 아니다");
+  }
+
   const expiresIn = body.expires_in;
 
   return {
     accessToken,
-    // 회전이 없으면 응답이 refresh_token을 빼고 온다 — 그때는 쓰던 값이 계속 유효하다.
-    refreshToken: typeof rotated === "string" && rotated !== "" ? rotated : previous,
+    refreshToken: rotated ?? previous,
+    // `expires_in`이 없어도 만료를 잃지 않는다 — 토큰의 `exp`가 있다(claims.ts).
     expiresAt: typeof expiresIn === "number" ? Date.now() + expiresIn * 1000 : null,
   };
 }

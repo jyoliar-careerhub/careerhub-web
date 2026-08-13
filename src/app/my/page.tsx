@@ -41,7 +41,7 @@ export default async function MyPage() {
 
       <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
         <dt>subject</dt>
-        <dd>{claims.subject ?? "(없음)"}</dd>
+        <dd>{claims.subject}</dd>
 
         <dt>권한</dt>
         <dd>
