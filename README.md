@@ -72,6 +72,34 @@ npm run gen:api   # 핀한 좌표에서 타입 재생성 (약 1.5초)
 색·간격이 더 필요하면 마크업에 값을 적지 말고 `globals.css`의 `@theme`에 토큰을 추가한다.
 정말 예외가 필요하면 `eslint-disable` 주석으로 명시해 리뷰에 드러낸다.
 
+## 인증 — 토큰은 브라우저에 닿지 않는다 (ADR-0028 · ops-workflow#8·#59)
+
+인증은 외부 IdP(Zitadel)가 소유하고, 인가 원장(권한·동의)은 auth-service에 남는다.
+로그인은 **Authorization Code + PKCE 표준 리다이렉트**다 — 레거시의 팝업·`postMessage`가 아니다.
+
+**토큰 접근은 `src/lib/auth` 하나에 갇혀 있다.** 읽기·쓰기·갱신·첨부, 그리고 OIDC 왕복까지
+전부 그 안이고, 밖에서는 `@/lib/auth`만 import한다. 저장 매체를 고르는 지점도 그 안의
+`store/index.ts` 한 줄이라, 축 D(토큰 저장)를 다시 고르는 일이 모듈 밖으로 새지 않는다.
+
+```
+src/lib/auth/index.ts             공개면 — 밖에서 import하는 유일한 파일
+src/lib/auth/login.ts             로그인·로그아웃 흐름 (라우트가 부르는 표면)
+src/lib/auth/oidc.ts              authorize URL·code 교환·logout URL · PKCE/state/nonce
+src/lib/auth/login-transaction.ts 진행 중인 왕복(state·nonce·verifier)의 봉인 쿠키
+src/lib/auth/session.ts           세션의 읽기·쓰기·갱신
+src/lib/auth/store/index.ts       ★ 저장 매체를 고르는 유일한 지점 (지금은 D1)
+src/app/auth/{start,callback,logout}/route.ts   HTTP만 아는 얇은 라우트
+```
+
+토큰은 **Next 서버가 굽는 암호화 HttpOnly 쿠키**에 산다(축 D 판정 = D1). 브라우저 JS는
+토큰 문자열에 도달할 수 없고, 그래서 인증이 얽힌 API 호출은 서버 컴포넌트·라우트를 경유한다.
+api-composer는 여전히 `Authorization` 헤더만 본다 — 소비 계약은 바뀌지 않았다.
+
+쿠키 자동 첨부로 옮긴 대가가 CSRF 표면이라, 세션 쿠키의 `SameSite=Lax`와 상태 변경 요청
+(로그아웃 POST)의 오리진 검사가 짝으로 선다.
+
+필요한 env는 `.env.example`에 있다. 로컬은 `.env.local`로 복사해 채운다.
+
 ## 개발
 
 ```bash

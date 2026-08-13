@@ -10,47 +10,72 @@
  * 힌트지 인가 판정의 근거가 아니다. 서명을 확인하지 않으므로 신뢰 경계를 넘지 않는다.
  */
 
+import { decodeBase64Url } from "./base64url";
+
 /**
- * 권한이 실리는 클레임 이름.
+ * 발급 훅이 싣는 클레임의 이름. 원천은 auth-service이고 계약은 그쪽에 있다 —
+ * `spec/issuance-hook/openapi.yaml` · `auth_service/issuancehook/claims.go`.
  *
- * 무엇이 실릴지는 Zitadel 발급 훅(Actions v2)의 설정이 정한다 — ADR-0031이 "클레임의
- * 이름·모양은 코드의 관할"이라 남긴 자리다. 훅을 세우는 티켓이 확정하면 이 한 줄을 고친다.
+ * `careerhub:` 네임스페이스인 것은 제품이 `urn:zitadel:iam` 접두를 버리는 것과
+ * 표준 클레임 키와 부딪혀 로그 클레임으로 밀리는 것을 피하기 위해서다(같은 파일의 주석).
  */
-const AUTHORITIES_CLAIM = "authorities";
+const CLAIM_AUTHORITIES = "careerhub:authorities";
+const CLAIM_AGREEMENTS_FULFILLED = "careerhub:agreements_fulfilled";
+
+/**
+ * 권한 하나.
+ *
+ * 만료된 권한은 애초에 실리지 않는다. 그럼에도 `expiresAt`이 동봉되는 것은 클레임이
+ * 발급 시점 스냅샷이고 액세스 토큰 수명이 그 스냅샷의 유효기간이기 때문이다 —
+ * **수명 안에서 만료되는 권한은 보는 쪽이 걸러야 한다**(발급 훅 계약의 명시).
+ */
+export interface Authority {
+  /** 권한 코드 (`authority.authority_code`) — 예: `AUTHORITY_ADMIN` */
+  code: string;
+  /** 만료 시각. `null`이면 무기한. */
+  expiresAt: Date | null;
+}
 
 /** 화면이 볼 수 있는 세션의 사실. 토큰 문자열은 여기 담기지 않는다. */
 export interface SessionClaims {
   /** 전역 사용자 식별자 — Zitadel이 발급한 `sub`를 그대로 쓴다 (ADR-0028). */
   subject: string | null;
-  /** 발급 시점 스냅샷이다 — 회수·부여의 발효는 토큰 갱신에 묶인다 (ADR-0031). */
-  authorities: readonly string[];
+  /** 발급 시점 스냅샷이다 — 부여·회수의 발효는 토큰 갱신에 묶인다 (ADR-0031). */
+  authorities: readonly Authority[];
+  /** 필수 약관 동의를 마쳤는가. 온보딩 게이트의 입력이다. */
+  agreementsFulfilled: boolean;
   /** `exp`를 epoch ms로. 클레임에 없으면 `null`. */
   expiresAt: number | null;
 }
 
-function decodeBase64Url(segment: string): string | null {
-  const padded = segment
-    .replaceAll("-", "+")
-    .replaceAll("_", "/")
-    .padEnd(Math.ceil(segment.length / 4) * 4, "=");
-  try {
-    const binary = atob(padded);
-    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
-    return new TextDecoder().decode(bytes);
-  } catch {
+function toAuthority(item: unknown): Authority | null {
+  if (typeof item !== "object" || item === null) {
     return null;
   }
+  const record = item as Record<string, unknown>;
+  const code = record["code"];
+  if (typeof code !== "string" || code === "") {
+    return null;
+  }
+
+  const expiresAt = record["expiresAt"];
+  if (typeof expiresAt !== "string") {
+    return { code, expiresAt: null };
+  }
+  const parsed = new Date(expiresAt);
+  return {
+    code,
+    expiresAt: Number.isNaN(parsed.getTime()) ? null : parsed,
+  };
 }
 
-function asStringArray(value: unknown): readonly string[] {
-  if (Array.isArray(value)) {
-    return value.filter((item): item is string => typeof item === "string");
+function toAuthorities(value: unknown): readonly Authority[] {
+  if (!Array.isArray(value)) {
+    return [];
   }
-  // 레거시가 쿠키에 콤마로 이어 담았듯, 훅이 문자열 하나로 실을 수도 있다.
-  if (typeof value === "string" && value.length > 0) {
-    return value.split(",").map((item) => item.trim());
-  }
-  return [];
+  return value
+    .map(toAuthority)
+    .filter((authority): authority is Authority => authority !== null);
 }
 
 /**
@@ -64,10 +89,11 @@ export function decodeClaims(accessToken: string): SessionClaims | null {
     return null;
   }
 
-  const json = decodeBase64Url(payloadSegment);
-  if (json === null) {
+  const decoded = decodeBase64Url(payloadSegment);
+  if (decoded === null) {
     return null;
   }
+  const json = new TextDecoder().decode(decoded);
 
   let payload: unknown;
   try {
@@ -85,8 +111,19 @@ export function decodeClaims(accessToken: string): SessionClaims | null {
 
   return {
     subject: typeof subject === "string" ? subject : null,
-    authorities: asStringArray(record[AUTHORITIES_CLAIM]),
+    authorities: toAuthorities(record[CLAIM_AUTHORITIES]),
+    agreementsFulfilled: record[CLAIM_AGREEMENTS_FULFILLED] === true,
     // `exp`는 epoch 초다 — 저장·비교는 ms로 통일한다.
     expiresAt: typeof expiresAt === "number" ? expiresAt * 1000 : null,
   };
+}
+
+/** 지금 시점에 살아 있는 권한만. 스냅샷 안에서 만료된 것을 걸러낸다. */
+export function effectiveAuthorities(
+  claims: SessionClaims,
+  now: number = Date.now(),
+): readonly Authority[] {
+  return claims.authorities.filter(
+    (authority) => authority.expiresAt === null || authority.expiresAt.getTime() > now,
+  );
 }

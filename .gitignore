@@ -38,6 +38,8 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# 값이 아니라 목록이다 — 어떤 env가 필요한지는 저장소가 알아야 한다.
+!.env.example
 
 # vercel
 .vercel

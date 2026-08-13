@@ -1,8 +1,8 @@
-import { decodeClaims } from "./claims";
+import { decodeClaims, effectiveAuthorities } from "./claims";
 import { exchangeRefreshToken, RefreshRejectedError } from "./refresh";
 import { sessionStore } from "./store";
 
-import type { SessionClaims } from "./claims";
+import type { Authority, SessionClaims } from "./claims";
 import type { StoredSession } from "./store";
 
 /**
@@ -103,8 +103,13 @@ export async function getSessionClaims(): Promise<SessionClaims | null> {
   return session === null ? null : decodeClaims(session.accessToken);
 }
 
-export async function getAuthorities(): Promise<readonly string[]> {
-  return (await getSessionClaims())?.authorities ?? [];
+/**
+ * 지금 유효한 권한. 클레임은 발급 시점 스냅샷이므로, 액세스 토큰 수명 안에서 만료되는
+ * 항목은 여기서 걸러진다(발급 훅 계약이 `expiresAt`을 동봉하는 이유다).
+ */
+export async function getAuthorities(): Promise<readonly Authority[]> {
+  const claims = await getSessionClaims();
+  return claims === null ? [] : effectiveAuthorities(claims);
 }
 
 export async function isAuthenticated(): Promise<boolean> {
