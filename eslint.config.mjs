@@ -3,6 +3,51 @@ import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 import tailwind from "eslint-plugin-tailwindcss";
 
+// 별도 CSS(CSS Modules 포함) 반입 차단 — 토큰 정의는 globals.css 한 곳뿐이다.
+// 정말 예외가 필요하면 eslint-disable 주석으로 명시하고 리뷰에 드러낸다 (ADR-0015 "이탈은 명시적으로만").
+const cssImportGuard = {
+  group: ["**/*.css", "!**/globals.css"],
+  message:
+    "별도 CSS 반입 금지 — 토큰을 globals.css @theme에 추가하고 유틸리티로 소비한다 (ADR-0015)",
+};
+
+// ops-workflow#8 — 인증 토큰 접근은 `src/lib/auth` 안에서만 일어난다.
+// 이 경계가 지켜지는 한 토큰 저장 매체(축 D)를 바꾸는 일은 그 모듈 안의 일이고,
+// 밖의 코드는 한 줄도 바뀌지 않는다. 규율을 문서가 아니라 여기에 둔 이유다.
+const authModuleGuard = {
+  group: ["**/auth/*", "**/auth/*/**"],
+  message:
+    "인증 토큰 모듈의 내부를 직접 부르지 않는다 — 공개면은 `@/lib/auth` 하나다 (ops-workflow#8)",
+};
+
+// 토큰을 요청에 싣는 이음매는 하나뿐이고, 그것을 채우는 것은 인증 모듈뿐이다.
+const tokenAttachGuard = {
+  group: ["**/api/client", "./client"],
+  importNames: ["setAccessTokenProvider"],
+  message:
+    "토큰 부착의 배선은 `src/lib/auth`만 한다 — 화면·호출 계층은 토큰을 만지지 않는다 (ops-workflow#8)",
+};
+
+// 토큰이 브라우저 저장소에 새는 길을 막는다. 저장 매체의 선택은 인증 모듈 안의 일이므로,
+// 밖에서 이 API들을 부를 이유가 없다 (ops-workflow#8 · ADR-0012의 SSR-safe 규율과 같은 방향).
+const browserStorageGuard = [
+  {
+    selector: "MemberExpression[object.name='document'][property.name='cookie']",
+    message:
+      "`document.cookie` 금지 — 토큰 저장은 `src/lib/auth` 안에서만 한다 (ops-workflow#8)",
+  },
+  {
+    selector: "Identifier[name='localStorage']",
+    message:
+      "`localStorage` 금지 — 토큰 저장은 `src/lib/auth` 안에서만 한다 (ops-workflow#8)",
+  },
+  {
+    selector: "Identifier[name='sessionStorage']",
+    message:
+      "`sessionStorage` 금지 — 토큰 저장은 `src/lib/auth` 안에서만 한다 (ops-workflow#8)",
+  },
+];
+
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
@@ -22,20 +67,11 @@ const eslintConfig = defineConfig([
       "tailwindcss/no-arbitrary-value": "error",
       "tailwindcss/no-custom-classname": "error",
       "tailwindcss/no-contradicting-classname": "error",
-      // 별도 CSS(CSS Modules 포함) 반입 차단 — 토큰 정의는 globals.css 한 곳뿐이다.
-      // 정말 예외가 필요하면 eslint-disable 주석으로 명시하고 리뷰에 드러낸다 (ADR-0015 "이탈은 명시적으로만").
       "no-restricted-imports": [
         "error",
-        {
-          patterns: [
-            {
-              group: ["**/*.css", "!**/globals.css"],
-              message:
-                "별도 CSS 반입 금지 — 토큰을 globals.css @theme에 추가하고 유틸리티로 소비한다 (ADR-0015)",
-            },
-          ],
-        },
+        { patterns: [cssImportGuard, authModuleGuard, tokenAttachGuard] },
       ],
+      "no-restricted-syntax": ["error", ...browserStorageGuard],
       "react/forbid-elements": [
         "error",
         {
@@ -83,6 +119,19 @@ const eslintConfig = defineConfig([
           message: "JS 파일 금지 — TypeScript(.ts/.tsx)로 작성한다 (ADR-0013)",
         },
       ],
+    },
+  },
+  {
+    // ops-workflow#8 — 경계의 안쪽. 여기가 토큰을 만져도 되는 유일한 곳이므로,
+    // 밖을 향한 두 금지(부착 이음매·브라우저 저장소)를 이 디렉터리에서만 푼다.
+    // CSS 금지는 그대로 둔다 — 그건 다른 규율(ADR-0015)이고 여기서 풀 이유가 없다.
+    files: ["src/lib/auth/**"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        { patterns: [cssImportGuard, authModuleGuard] },
+      ],
+      "no-restricted-syntax": "off",
     },
   },
   {
