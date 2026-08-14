@@ -1,8 +1,8 @@
-import { decodeClaims } from "./claims";
+import { decodeClaims, effectiveAuthorities } from "./claims";
 import { exchangeRefreshToken, RefreshRejectedError } from "./refresh";
 import { sessionStore } from "./store";
 
-import type { SessionClaims } from "./claims";
+import type { Authority, SessionClaims } from "./claims";
 import type { StoredSession } from "./store";
 
 /**
@@ -27,14 +27,16 @@ export interface IssuedTokens {
   expiresInSeconds: number | null;
 }
 
-function expiryOf(session: StoredSession): number | null {
-  return session.expiresAt ?? decodeClaims(session.accessToken)?.expiresAt ?? null;
+/**
+ * 만료 시각. 발급 응답의 `expires_in`이 없어도 토큰의 `exp`가 있다 —
+ * 그래서 "만료를 모르는 세션"이라는 상태가 없고, 죽은 토큰을 살아 있다고 볼 여지도 없다.
+ */
+function expiryOf(session: StoredSession): number {
+  return session.expiresAt ?? decodeClaims(session.accessToken).expiresAt;
 }
 
 function isExpiring(session: StoredSession): boolean {
-  const expiresAt = expiryOf(session);
-  // 만료를 알 수 없으면 살아 있다고 본다 — 모른다는 이유로 매 요청 갱신하지 않는다.
-  return expiresAt !== null && expiresAt - EXPIRY_MARGIN_MS <= Date.now();
+  return expiryOf(session) - EXPIRY_MARGIN_MS <= Date.now();
 }
 
 async function renew(session: StoredSession): Promise<StoredSession | null> {
@@ -103,8 +105,13 @@ export async function getSessionClaims(): Promise<SessionClaims | null> {
   return session === null ? null : decodeClaims(session.accessToken);
 }
 
-export async function getAuthorities(): Promise<readonly string[]> {
-  return (await getSessionClaims())?.authorities ?? [];
+/**
+ * 지금 유효한 권한. 클레임은 발급 시점 스냅샷이므로, 액세스 토큰 수명 안에서 만료되는
+ * 항목은 여기서 걸러진다(발급 훅 계약이 `expiresAt`을 동봉하는 이유다).
+ */
+export async function getAuthorities(): Promise<readonly Authority[]> {
+  const claims = await getSessionClaims();
+  return claims === null ? [] : effectiveAuthorities(claims);
 }
 
 export async function isAuthenticated(): Promise<boolean> {
