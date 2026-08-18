@@ -63,7 +63,7 @@ export default async function MyPage() {
       <form action="/auth/logout" method="post">
         <button
           type="submit"
-          className="rounded-md bg-brand-500 px-6 py-3 text-lg text-background hover:bg-brand-600"
+          className="rounded-md bg-primary px-6 py-3 text-lg text-primary-foreground hover:bg-primary/90"
         >
           로그아웃
         </button>

@@ -72,6 +72,38 @@ npm run gen:api   # 핀한 좌표에서 타입 재생성 (약 1.5초)
 색·간격이 더 필요하면 마크업에 값을 적지 말고 `globals.css`의 `@theme`에 토큰을 추가한다.
 정말 예외가 필요하면 `eslint-disable` 주석으로 명시해 리뷰에 드러낸다.
 
+클래스가 `cn()`·`cva()` 안으로 숨어도 검사를 벗어나지 않는다 — 플러그인의 `functions`
+설정에 그 이름들을 명시해 뒀다(v3의 `callees`가 v4에서 바뀐 축이다).
+
+## UI 컴포넌트 — shadcn/ui (ops-workflow#69)
+
+기성 컴포넌트는 **shadcn/ui**에서 가져온다. 동작(a11y·포커스)은 **Base UI**(`@base-ui/react`)가 맡는다.
+
+```bash
+npx shadcn@4.18.0 add <component>   # src/components/ui/ 로 복사된다
+```
+
+```
+components.json          # CLI 설정 — style: base-nova · Tailwind v4(config 파일 없음)
+src/components/ui/       # 복사되어 들어온 컴포넌트. 우리 코드다 — 손으로 고쳐도 된다
+src/lib/utils.ts         # cn() — clsx + tailwind-merge
+```
+
+**copy-in 모델이라 들어온 코드는 이 저장소의 것이다.** 그래서 위 스타일 규율이 그대로 적용된다 —
+shadcn 원본이 쓰는 임의 값은 린트가 거부하므로, **가져온 뒤 토큰으로 옮기고** 그 토큰을
+`globals.css`에 추가한다. 규칙을 푸는 방향은 ADR-0015를 무력화하므로 택하지 않는다.
+
+`globals.css`의 색 구조는 두 층이다:
+
+- `:root` — 시맨틱 토큰(`--primary`·`--muted`·`--destructive` …)의 **값**. 색의 원천은 여기 하나다.
+- `@theme inline` — 그 토큰을 `bg-primary` 같은 **유틸리티로 노출**. 값이 아니라 참조만 산다.
+
+다크는 클래스(`.dark`)가 아니라 `prefers-color-scheme`을 따른다 — 앱에 테마 토글이 없다.
+shadcn 컴포넌트의 `dark:` 유틸리티도 `@custom-variant`로 이 한 기전에 물려 있다.
+
+런타임 의존은 `@base-ui/react` + `clsx`·`tailwind-merge`·`class-variance-authority`,
+그리고 아이콘(`lucide-react`)까지다. 컴포넌트를 더 들일 때 그 밖의 의존이 붙으면 멈추고 확인한다.
+
 ## 인증 — 토큰은 브라우저에 닿지 않는다 (ADR-0028 · ops-workflow#8·#59)
 
 인증은 외부 IdP(Zitadel)가 소유하고, 인가 원장(권한·동의)은 auth-service에 남는다.

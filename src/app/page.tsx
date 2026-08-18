@@ -1,7 +1,7 @@
 export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background text-foreground">
-      <h1 className="text-3xl font-semibold tracking-tight text-brand-600">
+      <h1 className="text-3xl font-semibold tracking-tight text-primary">
         careerhub-web
       </h1>
       <p className="text-lg">

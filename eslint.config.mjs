@@ -59,6 +59,22 @@ const eslintConfig = defineConfig([
       tailwindcss: {
         // Tailwind v4 — 토큰의 원천은 CSS 엔트리포인트다
         cssConfigPath: "src/app/globals.css",
+        // 클래스가 `cn()`·`cva()` 안으로 들어가도 검사를 벗어나지 않는다 (ops-workflow#69).
+        // 플러그인 기본값에 이미 이 이름들이 있지만, 강제가 기본값에 얹혀 조용히
+        // 흔들리지 않도록 여기 명시한다 — 구멍이 나면 ADR-0015가 무력해진다.
+        // (v3의 `callees`가 v4에서 `functions`로 바뀐 축이다.)
+        functions: [
+          "cn",
+          "cva",
+          "clsx",
+          "classnames",
+          "classNames",
+          "ctl",
+          "tv",
+          "tw",
+          "twMerge",
+          "twJoin",
+        ],
       },
     },
     rules: {
