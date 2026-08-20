@@ -1,20 +1,18 @@
 import Link from "next/link";
-import { XIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import type { JobCategoryGroup } from "@/lib/api/conditions";
 import {
-  appliedConditions,
+  hasConditions,
   isCategorySelected,
   JOB_POSTING_LIST_ROUTE,
   listHref,
   withCategoryToggled,
-  type AppliedCondition,
-  type ConditionAxis,
   type ListSearch,
 } from "@/lib/job-posting/list-search";
 
+import { AppliedChips } from "./applied-chips";
 import { CareerFilter } from "./career-filter";
 import { CompanySearch } from "./company-search";
 import { SkillSearch } from "./skill-search";
@@ -35,38 +33,6 @@ import { SkillSearch } from "./skill-search";
  * 접기는 `<details>`라 JS가 없어도 동작한다 — 이 화면의 나머지가 링크뿐인 것과 같은 결이다.
  */
 
-/** 한 축에 걸린 조건들. 걸린 것이 없으면 자리도 차지하지 않는다. */
-function AppliedChips({ conditions }: { conditions: AppliedCondition[] }) {
-  if (conditions.length === 0) {
-    return null;
-  }
-
-  return (
-    <div
-      data-slot="applied-conditions"
-      className="flex flex-wrap items-center gap-1.5"
-    >
-      {conditions.map((condition) => (
-        <Badge
-          key={condition.key}
-          variant="secondary"
-          className="h-7 gap-1 px-3 text-sm"
-          render={
-            <Link
-              href={listHref(condition.without)}
-              prefetch={false}
-              aria-label={`${condition.label} 조건 해제`}
-            />
-          }
-        >
-          {condition.label}
-          <XIcon />
-        </Badge>
-      ))}
-    </div>
-  );
-}
-
 export function FilterPanel({
   search,
   categoryGroups,
@@ -74,10 +40,6 @@ export function FilterPanel({
   search: ListSearch;
   categoryGroups: JobCategoryGroup[];
 }) {
-  const conditions = appliedConditions(search);
-  const of = (axis: ConditionAxis): AppliedCondition[] =>
-    conditions.filter((condition) => condition.axis === axis);
-
   return (
     <section
       aria-label="검색 조건"
@@ -86,7 +48,7 @@ export function FilterPanel({
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-sm font-medium">직군</h2>
-          {conditions.length === 0 ? null : (
+          {hasConditions(search) ? (
             <Button
               variant="ghost"
               size="sm"
@@ -96,7 +58,7 @@ export function FilterPanel({
             >
               전체 해제
             </Button>
-          )}
+          ) : null}
         </div>
 
         {/*
@@ -139,18 +101,18 @@ export function FilterPanel({
           ))}
         </div>
 
-        <AppliedChips conditions={of("category")} />
+        <AppliedChips search={search} axis="category" />
       </div>
 
       <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div className="flex flex-col gap-2">
           <SkillSearch search={search} />
-          <AppliedChips conditions={of("skill")} />
+          <AppliedChips search={search} axis="skill" />
         </div>
 
         <div className="flex flex-col gap-2">
           <CompanySearch search={search} />
-          <AppliedChips conditions={of("company")} />
+          <AppliedChips search={search} axis="company" />
         </div>
 
         <div className="flex flex-col gap-2">
@@ -159,7 +121,7 @@ export function FilterPanel({
             key={`${search.minCareer ?? ""}-${search.maxCareer ?? ""}`}
             search={search}
           />
-          <AppliedChips conditions={of("career")} />
+          <AppliedChips search={search} axis="career" />
         </div>
       </div>
     </section>

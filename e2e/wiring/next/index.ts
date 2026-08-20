@@ -84,8 +84,10 @@ export function createNextDriver(page: Page): JourneyDriver {
   const results = (): Locator => page.locator(RESULTS);
   const cards = (): Locator => page.locator('[data-slot="job-posting"]');
   const summary = (): Locator => page.locator(`${RESULTS} [role="status"]`);
+  // 걸린 조건은 축마다 자기 자리에 놓인다 — 축을 가리지 않고 한 목록으로 모은다.
+  // 해제는 이동이 아니라 동작이라 앵커가 아니라 버튼이다.
   const appliedChips = (): Locator =>
-    page.locator('[data-slot="applied-conditions"] a');
+    page.locator('[data-slot="applied-conditions"] button');
   const categoryButtons = (): Locator =>
     page.locator('[data-slot="job-categories"] a');
 
