@@ -93,14 +93,7 @@ export async function CompanyReviews({
 
   return (
     <ReviewsRegion busy={false}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-heading text-lg font-semibold">회사 리뷰</h2>
-        <Rating
-          score={info.score}
-          reviewCount={info.reviewCount}
-          className="text-sm"
-        />
-      </div>
+      <h2 className="font-heading text-lg font-semibold">회사 리뷰</h2>
 
       {info.isCompleteCrawl ? null : (
         <p className="text-xs text-muted-foreground">

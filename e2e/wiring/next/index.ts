@@ -312,11 +312,10 @@ export function createNextDriver(page: Page): JourneyDriver {
       },
 
       async reviewCountInSummary(): Promise<number> {
-        // 리뷰 요약은 리뷰 영역 안의 별점이 낸다. 리뷰가 없으면 그 표기 자체가 없다 —
-        // 영역은 그대로 서 있으므로 "없음"과 "아직 안 그려짐"이 섞이지 않는다.
-        const count = (await settledReviews()).locator(
-          '[data-slot="rating-count"]',
-        );
+        // 요약은 회사 이름 옆의 별점이 낸다 — 바로 아래 리뷰가 나열되므로 같은 값을 두 번
+        // 내지 않는다. 리뷰가 없으면 그 표기 자체가 없다.
+        await page.locator('[data-slot="job-posting-detail-company"]').waitFor();
+        const count = page.locator('[data-slot="rating-count"]');
         if ((await count.count()) === 0) return 0;
         return firstNumberIn((await count.first().textContent()) ?? "");
       },

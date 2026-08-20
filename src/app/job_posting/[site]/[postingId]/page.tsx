@@ -7,7 +7,10 @@ import { ChevronLeftIcon } from "lucide-react";
 import { CompanyAside } from "@/components/job-posting/detail/company-aside";
 import { CompanyReviews } from "@/components/job-posting/detail/company-reviews";
 import { ReviewsSkeleton } from "@/components/job-posting/detail/reviews-region";
-import { PostingHeader } from "@/components/job-posting/detail/posting-header";
+import {
+  PostingHeader,
+  PostingTags,
+} from "@/components/job-posting/detail/posting-header";
 import { PostingSections } from "@/components/job-posting/detail/posting-sections";
 import {
   ApiError,
@@ -29,6 +32,10 @@ import {
  *
  * 리뷰만 `<Suspense>` 안에 둔다 — 페이지를 넘겨도 공고 본문은 서 있고 리뷰 자리에만
  * 스켈레톤이 뜬다. `key`가 지금 보는 리뷰 페이지라 넘길 때마다 경계가 새로 선다.
+ *
+ * 순서는 **회사를 먼저, 포지션을 나중에**다: 별점 → 리뷰 나열 → 회사가 내세우는 태그 →
+ * 포지션 상세. 회사가 스스로 말하는 것과 다닌 사람들이 말하는 것이 같은 자리에서 읽혀야
+ * 그 둘을 견줄 수 있다 — 기존 앱도 이 순서다.
  */
 
 interface PostingParams {
@@ -91,11 +98,17 @@ export default async function JobPostingDetailPage({
 
       <div className="grid items-start gap-8 lg:grid-cols-posting-detail">
         <div className="flex min-w-0 flex-col gap-8">
-          <PostingSections posting={posting} />
-
+          {/*
+            리뷰는 별점 바로 다음, 회사가 내세우는 태그 앞에 선다 — 그 셋이 "이 회사는
+            어떤 곳인가"를 말하는 한 묶음이고, 포지션의 상세는 그 뒤의 일이다.
+          */}
           <Suspense key={detailHref(view)} fallback={<ReviewsSkeleton />}>
             <CompanyReviews posting={posting} view={view} />
           </Suspense>
+
+          <PostingTags posting={posting} />
+
+          <PostingSections posting={posting} />
         </div>
 
         <CompanyAside posting={posting} />
