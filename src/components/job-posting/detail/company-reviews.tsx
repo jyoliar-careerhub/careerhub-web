@@ -41,10 +41,13 @@ function ReviewItem({ review }: { review: Review }) {
   return (
     <li
       data-slot="company-review"
-      className="flex flex-col gap-1.5 rounded-lg border p-4"
+      className="flex flex-col gap-1 rounded-lg border px-4 py-3"
     >
-      <Rating score={review.score} className="text-sm" />
-      <h3 className="font-medium">{review.summary}</h3>
+      {/* 점수와 한 줄 평가는 같은 말이다 — 줄을 갈라 놓으면 그 사이가 빈칸으로만 남는다. */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Rating score={review.score} className="text-sm" />
+        <h3 className="font-medium">{review.summary}</h3>
+      </div>
       <p className="text-xs text-muted-foreground">
         {review.employmentStatus ? "현직원" : "전직원"} · {review.jobType} ·{" "}
         {review.reviewUserId} · {dateText(review.date)}
@@ -105,7 +108,7 @@ export async function CompanyReviews({
         {view.reviewPage} / {totalPages} 페이지
       </p>
 
-      <ul className="flex flex-col gap-3">
+      <ul className="flex flex-col gap-2">
         {reviews.map((review) => (
           <ReviewItem
             key={`${review.reviewUserId}/${review.date}/${review.summary}`}
