@@ -1,5 +1,5 @@
 import type { JobPostingQuery } from "@/lib/api/job-postings";
-import type { JobCategory, SiteCompany } from "@/lib/api/conditions";
+import type { SiteCategory, SiteCompany } from "@/lib/api/conditions";
 
 /**
  * 목록 화면의 상태 — **주소가 전부다.**
@@ -27,7 +27,7 @@ const PARAM_PAGE = "page";
 
 /** 한 기술스택 묶음 안의 대체 표기들을 잇는다(계약의 안쪽 배열 = OR). 실측: 표기에 `|`가 없다. */
 const SKILL_NAME_SEPARATOR = "|";
-/** `사이트:회사명`. 사이트 이름에는 `:`가 없으므로 첫 `:`에서 가른다. */
+/** `사이트:이름`(직군·회사 공통). 사이트 이름에는 `:`가 없으므로 첫 `:`에서 가른다. */
 const SITE_SEPARATOR = ":";
 
 /** 화면이 받는 질의문자열의 날것 — Next의 `searchParams`가 주는 모양 그대로. */
@@ -36,8 +36,8 @@ export type RawSearchParams = Record<string, string | string[] | undefined>;
 export interface ListSearch {
   /** 1부터 시작한다(계약의 `page`와 같다). */
   page: number;
-  /** 고른 직군 이름들. 사이트로 펼치는 것은 호출 직전의 일이다. */
-  categoryNames: string[];
+  /** 고른 직군들. 직군의 어휘는 사이트마다 다르므로 좌표에 사이트가 함께 산다. */
+  categories: SiteCategory[];
   /** 묶음끼리 AND, 묶음 안은 OR — 계약의 `skillNames` 구조 그대로. */
   skillGroups: string[][];
   companies: SiteCompany[];
@@ -47,7 +47,7 @@ export interface ListSearch {
 
 export const EMPTY_SEARCH: ListSearch = {
   page: 1,
-  categoryNames: [],
+  categories: [],
   skillGroups: [],
   companies: [],
   minCareer: null,
@@ -71,19 +71,17 @@ function positiveIntOf(params: RawSearchParams, key: string): number | null {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 }
 
-function parseSiteCompany(raw: string): SiteCompany | null {
+/** `사이트:이름`을 가른다. 알아볼 수 없으면 `null` — 주소는 손으로 고쳐질 수 있다. */
+function parseSiteScoped(raw: string): { site: string; name: string } | null {
   const boundary = raw.indexOf(SITE_SEPARATOR);
   if (boundary <= 0 || boundary === raw.length - 1) {
     return null;
   }
-  return {
-    site: raw.slice(0, boundary),
-    companyName: raw.slice(boundary + 1),
-  };
+  return { site: raw.slice(0, boundary), name: raw.slice(boundary + 1) };
 }
 
-function formatSiteCompany(company: SiteCompany): string {
-  return `${company.site}${SITE_SEPARATOR}${company.companyName}`;
+function formatSiteScoped(site: string, name: string): string {
+  return `${site}${SITE_SEPARATOR}${name}`;
 }
 
 /**
@@ -95,13 +93,20 @@ function formatSiteCompany(company: SiteCompany): string {
 export function parseListSearch(params: RawSearchParams): ListSearch {
   return {
     page: positiveIntOf(params, PARAM_PAGE) ?? 1,
-    categoryNames: valuesOf(params, PARAM_CATEGORY),
+    categories: valuesOf(params, PARAM_CATEGORY).flatMap((raw) => {
+      const parsed = parseSiteScoped(raw);
+      return parsed === null
+        ? []
+        : [{ site: parsed.site, categoryName: parsed.name }];
+    }),
     skillGroups: valuesOf(params, PARAM_SKILL).map((raw) =>
       raw.split(SKILL_NAME_SEPARATOR).filter((name) => name !== ""),
     ),
     companies: valuesOf(params, PARAM_COMPANY).flatMap((raw) => {
-      const company = parseSiteCompany(raw);
-      return company === null ? [] : [company];
+      const parsed = parseSiteScoped(raw);
+      return parsed === null
+        ? []
+        : [{ site: parsed.site, companyName: parsed.name }];
     }),
     minCareer: positiveIntOf(params, PARAM_MIN_CAREER),
     maxCareer: positiveIntOf(params, PARAM_MAX_CAREER),
@@ -111,14 +116,20 @@ export function parseListSearch(params: RawSearchParams): ListSearch {
 /** 화면의 상태를 주소로 되돌린다. 링크의 `href`가 되는 것이 이 값이다. */
 export function listHref(search: ListSearch): string {
   const params = new URLSearchParams();
-  for (const name of search.categoryNames) {
-    params.append(PARAM_CATEGORY, name);
+  for (const category of search.categories) {
+    params.append(
+      PARAM_CATEGORY,
+      formatSiteScoped(category.site, category.categoryName),
+    );
   }
   for (const group of search.skillGroups) {
     params.append(PARAM_SKILL, group.join(SKILL_NAME_SEPARATOR));
   }
   for (const company of search.companies) {
-    params.append(PARAM_COMPANY, formatSiteCompany(company));
+    params.append(
+      PARAM_COMPANY,
+      formatSiteScoped(company.site, company.companyName),
+    );
   }
   if (search.minCareer !== null) {
     params.set(PARAM_MIN_CAREER, String(search.minCareer));
@@ -151,16 +162,29 @@ export function withPage(search: ListSearch, page: number): ListSearch {
   return { ...search, page };
 }
 
+function sameCategory(left: SiteCategory, right: SiteCategory): boolean {
+  return (
+    left.site === right.site && left.categoryName === right.categoryName
+  );
+}
+
+export function isCategorySelected(
+  search: ListSearch,
+  category: SiteCategory,
+): boolean {
+  return search.categories.some((each) => sameCategory(each, category));
+}
+
 export function withCategoryToggled(
   search: ListSearch,
-  name: string,
+  category: SiteCategory,
 ): ListSearch {
-  const selected = search.categoryNames.includes(name);
+  const selected = isCategorySelected(search, category);
   return reset({
     ...search,
-    categoryNames: selected
-      ? search.categoryNames.filter((each) => each !== name)
-      : [...search.categoryNames, name],
+    categories: selected
+      ? search.categories.filter((each) => !sameCategory(each, category))
+      : [...search.categories, category],
   });
 }
 
@@ -214,7 +238,7 @@ export function clearedSearch(): ListSearch {
 
 export function hasConditions(search: ListSearch): boolean {
   return (
-    search.categoryNames.length > 0 ||
+    search.categories.length > 0 ||
     search.skillGroups.length > 0 ||
     search.companies.length > 0 ||
     search.minCareer !== null ||
@@ -248,13 +272,15 @@ function careerLabel(min: number | null, max: number | null): string {
 export function appliedConditions(search: ListSearch): AppliedCondition[] {
   const conditions: AppliedCondition[] = [];
 
-  for (const name of search.categoryNames) {
+  for (const category of search.categories) {
     conditions.push({
-      key: `${PARAM_CATEGORY}:${name}`,
-      label: name,
+      key: `${PARAM_CATEGORY}:${formatSiteScoped(category.site, category.categoryName)}`,
+      label: `${category.categoryName} (${category.site})`,
       without: reset({
         ...search,
-        categoryNames: search.categoryNames.filter((each) => each !== name),
+        categories: search.categories.filter(
+          (each) => !sameCategory(each, category),
+        ),
       }),
     });
   }
@@ -274,7 +300,7 @@ export function appliedConditions(search: ListSearch): AppliedCondition[] {
 
   for (const company of search.companies) {
     conditions.push({
-      key: `${PARAM_COMPANY}:${formatSiteCompany(company)}`,
+      key: `${PARAM_COMPANY}:${formatSiteScoped(company.site, company.companyName)}`,
       label: `${company.companyName} (${company.site})`,
       without: reset({
         ...search,
@@ -299,27 +325,14 @@ export function appliedConditions(search: ListSearch): AppliedCondition[] {
 /**
  * 화면의 상태를 계약이 아는 모양으로 옮긴다.
  *
- * 직군은 여기서 사이트별 항목으로 **펼쳐진다** — 계약은 `{site, categoryName}`을 요구하고
- * 그 배열은 OR다(실측). 화면이 이름 하나로 다루는 직군이 두 사이트에 있으면 두 항목이 된다.
- * 비어 있는 축은 아예 싣지 않는다 — 빈 배열과 미지정이 같은 뜻이라 짧은 쪽을 고른다.
+ * 화면이 다루는 좌표가 곧 계약의 좌표라(`{site, categoryName}`·`{site, companyName}`)
+ * 여기서 펼치거나 되짚을 것이 없다. 비어 있는 축은 아예 싣지 않는다 — 빈 배열과 미지정이
+ * 같은 뜻이라 짧은 쪽을 고른다.
  */
-export function toApiQuery(
-  search: ListSearch,
-  categories: JobCategory[],
-): JobPostingQuery {
-  const sitesByName = new Map(
-    categories.map((category) => [category.name, category.sites]),
-  );
-  const categoryEntries = search.categoryNames.flatMap((name) =>
-    (sitesByName.get(name) ?? []).map((site) => ({
-      site,
-      categoryName: name,
-    })),
-  );
-
+export function toApiQuery(search: ListSearch): JobPostingQuery {
   const query: JobPostingQuery = {};
-  if (categoryEntries.length > 0) {
-    query.categories = categoryEntries;
+  if (search.categories.length > 0) {
+    query.categories = search.categories;
   }
   if (search.skillGroups.length > 0) {
     query.skillNames = search.skillGroups;

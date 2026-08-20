@@ -27,17 +27,21 @@ export class ConditionApiError extends Error {
 }
 
 /**
- * 고를 수 있는 직군 하나.
+ * 한 사이트가 제시하는 직군들.
  *
- * 계약은 직군을 **사이트별로** 준다(`categoriesBySite`). 그런데 같은 이름의 직군이 여러
- * 사이트에 걸쳐 있어서(실측: 68개 중 8개가 중복) 사이트별로 그리면 같은 이름의 버튼이
- * 두 번 나온다. 사이트는 수집기의 사정이지 구직자의 관심사가 아니므로 **이름으로 합치고**,
- * 조건으로 걸 때 그 이름을 가진 사이트 전부로 펼친다(계약의 `categories`는 OR다 — 실측).
+ * **직군의 어휘는 사이트마다 다르다** — 같은 이름이 양쪽에 있기도 하고(실측: 68개 중 8개),
+ * 한쪽에만 있는 이름도 많다. 어느 사이트의 말인지를 지우면 고르는 사람이 그 차이를 볼 수
+ * 없으므로, 화면도 계약과 같은 단위로 제시한다.
  */
-export interface JobCategory {
-  name: string;
-  /** 이 이름의 직군을 제공하는 사이트들. 조건을 계약의 모양으로 펼칠 때 쓴다. */
-  sites: string[];
+export interface JobCategoryGroup {
+  site: string;
+  categories: string[];
+}
+
+/** 직군 하나를 가리키는 좌표 — 계약의 `CategoryQuery`와 같은 모양. */
+export interface SiteCategory {
+  site: string;
+  categoryName: string;
 }
 
 /** 서로 대체 가능한 기술스택 표기의 묶음 — 계약의 `skillNames` 안쪽 배열(OR)이 이것이다. */
@@ -59,34 +63,29 @@ export interface CompanyCandidate {
   siteCompanies: SiteCompany[];
 }
 
-export async function listJobCategories(): Promise<JobCategory[]> {
+export async function listJobCategoryGroups(): Promise<JobCategoryGroup[]> {
   const { data, error, response } = await api.GET("/categories");
   if (error !== undefined) {
     throw new ConditionApiError("직군 목록 조회", response.status, error);
   }
 
-  const sitesByName = new Map<string, string[]>();
-  for (const bySite of data.categoriesBySite ?? []) {
-    const site = bySite.site;
-    if (site === undefined) {
-      continue;
-    }
-    for (const name of bySite.categories ?? []) {
-      const sites = sitesByName.get(name);
-      if (sites === undefined) {
-        sitesByName.set(name, [site]);
-      } else if (!sites.includes(site)) {
-        sites.push(site);
-      }
-    }
-  }
-
-  // **이름순으로 세운다.** 계약이 주는 순서는 사이트 단위이고 그 안에서도 안정적이지 않다
-  // (실측: 같은 응답이 호출마다 다른 순서로 온다) — 그대로 그리면 새로 고칠 때마다
-  // 버튼이 자리를 바꿔, 화면에서 무엇을 고를지 기억할 수 없게 된다.
-  return [...sitesByName]
-    .map(([name, sites]) => ({ name, sites }))
-    .sort((left, right) => left.name.localeCompare(right.name, "ko"));
+  // **이름순으로 세운다.** 계약이 주는 순서는 안정적이지 않다(실측: 같은 응답이 호출마다
+  // 다른 순서로 온다) — 그대로 그리면 새로 고칠 때마다 버튼이 자리를 바꿔, 화면에서
+  // 무엇을 어디서 봤는지 기억할 수 없게 된다.
+  return (data.categoriesBySite ?? [])
+    .flatMap((bySite) =>
+      bySite.site === undefined
+        ? []
+        : [
+            {
+              site: bySite.site,
+              categories: [...(bySite.categories ?? [])].sort((left, right) =>
+                left.localeCompare(right, "ko"),
+              ),
+            },
+          ],
+    )
+    .sort((left, right) => left.site.localeCompare(right.site));
 }
 
 export async function listSkillGroups(): Promise<SkillGroup[]> {

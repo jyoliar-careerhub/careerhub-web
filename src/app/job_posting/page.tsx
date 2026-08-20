@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { FilterPanel } from "@/components/job-posting/filter-panel";
 import { Results } from "@/components/job-posting/results";
 import { ResultsSkeleton } from "@/components/job-posting/results-region";
-import { listJobCategories } from "@/lib/api/conditions";
+import { listJobCategoryGroups } from "@/lib/api/conditions";
 import {
   listHref,
   parseListSearch,
@@ -35,7 +35,7 @@ export default async function JobPostingListPage({
   searchParams: Promise<RawSearchParams>;
 }) {
   const search = parseListSearch(await searchParams);
-  const categories = await listJobCategories();
+  const categoryGroups = await listJobCategoryGroups();
 
   return (
     <main className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-8">
@@ -48,10 +48,10 @@ export default async function JobPostingListPage({
         </p>
       </header>
 
-      <FilterPanel search={search} categories={categories} />
+      <FilterPanel search={search} categoryGroups={categoryGroups} />
 
       <Suspense key={listHref(search)} fallback={<ResultsSkeleton />}>
-        <Results search={search} categories={categories} />
+        <Results search={search} />
       </Suspense>
     </main>
   );

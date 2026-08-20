@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 
-import type { JobCategory } from "@/lib/api/conditions";
 import {
   countJobPostings,
   listJobPostings,
@@ -29,14 +28,8 @@ const EAGER_IMAGES = 4;
  * 몇 건인지·몇 페이지 중 몇 페이지인지를 화면에 낸다. 규모를 모르면 사용자는 자기가 건
  * 조건이 통했는지 알 수 없고, 그 값이 화면에 있어야 "좁아졌다"가 눈으로도 보인다.
  */
-export async function Results({
-  search,
-  categories,
-}: {
-  search: ListSearch;
-  categories: JobCategory[];
-}) {
-  const query = toApiQuery(search, categories);
+export async function Results({ search }: { search: ListSearch }) {
+  const query = toApiQuery(search);
   const [count, postings] = await Promise.all([
     countJobPostings(query),
     listJobPostings({ page: search.page, size: PAGE_SIZE, query }),

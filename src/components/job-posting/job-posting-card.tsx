@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { StarIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import {
@@ -18,6 +19,10 @@ import type { JobPosting } from "@/lib/api/job-postings";
  * 어디인지(회사), 무엇을 쓰는지(기술스택), 어느 직군·경력인지. 이 넷이 곧 좁히는 축이라
  * 사용자는 카드에서 본 값으로 다음 조건을 건다.
  *
+ * 여기에 **회사 평판(별점·리뷰 수)** 과 **출처 사이트**가 붙는다. 앞의 것은 지원할지를
+ * 가르는 값이고, 뒤의 것은 같은 공고가 사이트마다 다른 이름·다른 직군으로 올라오기 때문에
+ * 필요하다 — 어디서 온 것인지를 지우면 걸어 둔 직군 조건과 화면이 어긋나 보인다.
+ *
  * **기술스택도 직군도 자르지 않는다.** 조건을 걸고 나면 "이 결과가 정말 그 조건의 공고인가"를
  * 카드에서 확인하게 되는데, 접어 둔 항목이 있으면 그 확인이 성립하지 않는다.
  *
@@ -32,6 +37,13 @@ import type { JobPosting } from "@/lib/api/job-postings";
  * (직군은 자르지 않는다 — 그 축은 "이 결과가 정말 그 직군인가"를 카드에서 확인하는 데 쓰인다.)
  */
 const VISIBLE_SKILLS = 8;
+
+/**
+ * 계약의 점수는 10을 곱한 정수다(`45` = 4.5) — 기존 앱도 같은 자리에서 같은 규칙으로 되돌린다.
+ */
+function scoreText(score: number): string {
+  return `${Math.floor(score / 10)}.${score % 10}`;
+}
 
 function careerText(minCareer: number | null, maxCareer: number | null): string {
   if (minCareer && maxCareer) {
@@ -73,7 +85,7 @@ export function JobPostingCard({
   const hiddenSkillCount = skills.length - shownSkills.length;
   const categories = posting.categories ?? [];
   const region = firstRegionOf(posting.addresses);
-  const reviewCount = posting.reviewInfo?.reviewCount ?? 0;
+  const review = posting.reviewInfo;
 
   return (
     <Card
@@ -111,6 +123,19 @@ export function JobPostingCard({
       </CardHeader>
 
       <CardContent className="flex flex-1 flex-col gap-3">
+        {review === undefined ? null : (
+          <p className="flex items-center gap-1 text-xs">
+            <StarIcon className="size-3.5 fill-current text-rating" />
+            <span className="font-medium">{scoreText(review.score)}</span>
+            <span
+              data-slot="job-posting-reviews"
+              className="text-muted-foreground"
+            >
+              ({review.reviewCount}개 리뷰)
+            </span>
+          </p>
+        )}
+
         {categories.length === 0 ? null : (
           <ul data-slot="job-posting-categories" className="flex flex-wrap gap-1">
             {categories.map((category) => (
@@ -144,9 +169,8 @@ export function JobPostingCard({
             {careerText(posting.minCareer, posting.maxCareer)}
           </span>
           {region === null ? null : <span>{region}</span>}
-          {reviewCount === 0 ? null : (
-            <span data-slot="job-posting-reviews">리뷰 {reviewCount}개</span>
-          )}
+          {/* 어느 사이트에서 온 공고인가 — 같은 자리를 두 사이트가 다르게 부를 수 있다. */}
+          <span data-slot="job-posting-site">from {posting.site}</span>
         </p>
       </CardContent>
     </Card>
