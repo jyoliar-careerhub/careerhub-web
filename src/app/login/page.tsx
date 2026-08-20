@@ -43,14 +43,14 @@ export default async function LoginPage({
       <h1 className="text-2xl font-semibold tracking-tight">로그인</h1>
 
       {failed ? (
-        <p role="alert" className="text-sm text-brand-900">
+        <p role="alert" className="text-sm text-destructive">
           로그인이 완료되지 않았습니다. 다시 시도해 주세요.
         </p>
       ) : null}
 
       <a
         href={authorizeUrl}
-        className="rounded-md bg-brand-500 px-6 py-3 text-lg text-background hover:bg-brand-600"
+        className="rounded-md bg-primary px-6 py-3 text-lg text-primary-foreground hover:bg-primary/90"
       >
         Google 계정으로 계속하기
       </a>
