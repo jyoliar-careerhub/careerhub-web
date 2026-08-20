@@ -35,6 +35,14 @@ function PaginationItem({ ...props }: React.ComponentProps<"li">) {
 
 type PaginationLinkProps = {
   isActive?: boolean
+  /**
+   * 링크의 실체. 기본은 맨 앵커라 누르면 문서가 통째로 다시 뜬다 — 앱 안의 이동에는
+   * `next/link`를 넣어 클라이언트 내비게이션을 유지한다 (ops-workflow#70).
+   * 표기(children)는 이 엘리먼트가 아니라 `PaginationLink`에 준다 — 두 자리에 두면
+   * 어느 쪽이 그려질지가 render 구현에 달리게 된다. 반대로 앵커의 속성(`href`·`aria-label`)은
+   * 이 엘리먼트에 단다 — render를 주면 기본 앵커가 서지 않으므로 거기 갈 자리가 없다.
+   */
+  render?: React.ComponentProps<typeof Button>["render"]
 } & Pick<React.ComponentProps<typeof Button>, "size"> &
   React.ComponentProps<"a">
 
@@ -42,6 +50,8 @@ function PaginationLink({
   className,
   isActive,
   size = "icon",
+  render,
+  children,
   ...props
 }: PaginationLinkProps) {
   return (
@@ -56,8 +66,10 @@ function PaginationLink({
       data-slot="pagination-link"
       data-active={isActive}
       aria-current={isActive ? "page" : undefined}
-      render={<a {...props} />}
-    />
+      render={render ?? <a {...props} />}
+    >
+      {children}
+    </Button>
   )
 }
 
