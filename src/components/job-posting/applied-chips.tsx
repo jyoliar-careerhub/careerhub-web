@@ -4,8 +4,11 @@ import { useRouter } from "next/navigation";
 import { XIcon } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import {
   appliedConditions,
+  clearedSearch,
+  hasConditions,
   listHref,
   type ConditionAxis,
   type ListSearch,
@@ -61,5 +64,25 @@ export function AppliedChips({
         </Badge>
       ))}
     </div>
+  );
+}
+
+/** 축을 가리지 않고 전부 푼다 — 어느 한 축의 것이 아니라 패널 머리에 선다. */
+export function ClearConditions({ search }: { search: ListSearch }) {
+  const router = useRouter();
+
+  if (!hasConditions(search)) {
+    return null;
+  }
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      data-slot="clear-conditions"
+      onClick={() => router.push(listHref(clearedSearch()))}
+    >
+      전체 해제
+    </Button>
   );
 }

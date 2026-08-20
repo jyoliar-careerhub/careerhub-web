@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 
 import { Input } from "@/components/ui/input";
@@ -22,7 +22,7 @@ export interface Candidate {
   id: string;
   /** 사람이 읽는 표기 — 고를 수 있으려면 무엇인지 이름으로 말해야 한다. */
   label: string;
-  /** 이 후보를 조건으로 건 주소. */
+  /** 이 후보를 조건으로 걸었을 때의 주소. 고르는 순간 그리로 간다. */
   href: string;
 }
 
@@ -50,6 +50,7 @@ export function ConditionSearchBox({
   placeholder,
   find,
 }: ConditionSearchBoxProps) {
+  const router = useRouter();
   const inputId = useId();
   const [keyword, setKeyword] = useState("");
   const [result, setResult] = useState<SearchResult | null>(null);
@@ -118,14 +119,17 @@ export function ConditionSearchBox({
             <ul>
               {candidates.map((candidate) => (
                 <li key={candidate.id}>
-                  <Link
-                    href={candidate.href}
-                    prefetch={false}
-                    onClick={() => setKeyword("")}
-                    className="block rounded-md px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                  {/* 고르는 것은 조건을 거는 동작이다 — 이동이 아니므로 버튼으로 둔다. */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setKeyword("");
+                      router.push(candidate.href);
+                    }}
+                    className="block w-full rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground"
                   >
                     {candidate.label}
-                  </Link>
+                  </button>
                 </li>
               ))}
             </ul>

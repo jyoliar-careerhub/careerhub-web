@@ -23,8 +23,8 @@ import type {
  * - **경로 라우팅**이다 — 기존 앱의 해시(`#/login`)가 아니다.
  * - **로그인 진입점은 발급자를 직접 가리키는 앵커**다. 같은 오리진의 라우트를 거쳐
  *   리다이렉트하지 않으므로, 앵커의 `href`만 보고 "앱 밖인가"를 판정할 수 있다.
- * - **목록 화면의 상태는 주소에 있다.** 조건을 걸고 푸는 일이 전부 링크를 따라가는 것이라,
- *   배선이 눌러야 하는 것은 언제나 앵커다 — 폼 제출도 상태 토글도 아니다.
+ * - **목록 화면의 상태는 주소에 있다.** 다만 조건을 켜고 끄는 것은 이동이 아니라 동작이라
+ *   버튼이고(직군·후보·조건 해제), 진짜 이동인 페이지 넘김만 앵커다.
  * - **다 그려졌는지를 화면이 말한다.** 결과 영역이 `aria-busy`로 자기 상태를 내므로,
  *   기존 앱 배선처럼 "두 번 재서 같으면 멈춘 것"으로 추정하지 않는다.
  *
@@ -89,7 +89,7 @@ export function createNextDriver(page: Page): JourneyDriver {
   const appliedChips = (): Locator =>
     page.locator('[data-slot="applied-conditions"] button');
   const categoryButtons = (): Locator =>
-    page.locator('[data-slot="job-categories"] a');
+    page.locator('[data-slot="job-categories"] button');
 
   /**
    * 결과를 바꾸는 동작 하나.
@@ -126,7 +126,7 @@ export function createNextDriver(page: Page): JourneyDriver {
     const box = (): Locator =>
       page.locator(`[data-slot="condition-search"][data-axis="${axis}"]`);
     const candidates = (): Locator =>
-      box().locator('[data-slot="condition-candidates"] a');
+      box().locator('[data-slot="condition-candidates"] button');
 
     return {
       async type(keyword) {
