@@ -1,9 +1,7 @@
 import { redirect } from "next/navigation";
 
-import {
-  countJobPostings,
-  listJobPostings,
-} from "@/lib/api/job-postings";
+import { PageNavigation } from "@/components/page-navigation";
+import { countJobPostings, listJobPostings } from "@/lib/api/job-postings";
 import {
   listHref,
   PAGE_SIZE,
@@ -13,7 +11,6 @@ import {
 } from "@/lib/job-posting/list-search";
 
 import { JobPostingCard } from "./job-posting-card";
-import { ListPagination } from "./list-pagination";
 import { ResultsGrid, ResultsRegion } from "./results-region";
 
 /** 첫 줄(가장 넓은 배치 기준)은 화면에 바로 보인다 — 그 이미지까지는 미루지 않는다. */
@@ -65,7 +62,11 @@ export async function Results({ search }: { search: ListSearch }) {
         </ResultsGrid>
       )}
 
-      <ListPagination search={search} totalPages={totalPages} />
+      <PageNavigation
+        current={search.page}
+        totalPages={totalPages}
+        hrefOf={(page) => listHref(withPage(search, page))}
+      />
     </ResultsRegion>
   );
 }
