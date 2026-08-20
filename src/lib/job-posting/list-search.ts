@@ -247,12 +247,17 @@ export function hasConditions(search: ListSearch): boolean {
 }
 
 /**
- * 걸어 둔 조건 하나 — 축을 가리지 않고 한 목록으로 본다.
+ * 걸어 둔 조건 하나.
  *
  * *걸린 것이 화면에 드러나고, 하나씩 풀 수 있다*는 것이 검색 화면의 불변식이다.
- * 축마다 다른 모양으로 그리면 그 불변식이 축의 수만큼 흩어진다.
+ * 모양은 축을 가리지 않고 하나지만(칩 + 해제 링크), **놓이는 자리는 축을 따라간다** —
+ * 조건은 그것을 건 곳 바로 아래에서 되보여야 무엇을 풀고 있는지가 화면에서 읽힌다.
  */
+export type ConditionAxis = "category" | "skill" | "company" | "career";
+
 export interface AppliedCondition {
+  /** 어느 축에서 걸린 조건인가 — 화면은 축마다 자기 조건을 자기 자리에 되보여준다. */
+  axis: ConditionAxis;
   key: string;
   label: string;
   /** 이 조건만 뺀 검색. 칩의 링크가 여기로 간다. */
@@ -274,6 +279,7 @@ export function appliedConditions(search: ListSearch): AppliedCondition[] {
 
   for (const category of search.categories) {
     conditions.push({
+      axis: "category",
       key: `${PARAM_CATEGORY}:${formatSiteScoped(category.site, category.categoryName)}`,
       label: `${category.categoryName} (${category.site})`,
       without: reset({
@@ -287,6 +293,7 @@ export function appliedConditions(search: ListSearch): AppliedCondition[] {
 
   for (const group of search.skillGroups) {
     conditions.push({
+      axis: "skill",
       key: `${PARAM_SKILL}:${group.join(SKILL_NAME_SEPARATOR)}`,
       label: group.join(" / "),
       without: reset({
@@ -300,6 +307,7 @@ export function appliedConditions(search: ListSearch): AppliedCondition[] {
 
   for (const company of search.companies) {
     conditions.push({
+      axis: "company",
       key: `${PARAM_COMPANY}:${formatSiteScoped(company.site, company.companyName)}`,
       label: `${company.companyName} (${company.site})`,
       without: reset({
@@ -313,6 +321,7 @@ export function appliedConditions(search: ListSearch): AppliedCondition[] {
 
   if (search.minCareer !== null || search.maxCareer !== null) {
     conditions.push({
+      axis: "career",
       key: "career",
       label: careerLabel(search.minCareer, search.maxCareer),
       without: reset({ ...search, minCareer: null, maxCareer: null }),

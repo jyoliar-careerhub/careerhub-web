@@ -10,6 +10,8 @@ import {
   JOB_POSTING_LIST_ROUTE,
   listHref,
   withCategoryToggled,
+  type AppliedCondition,
+  type ConditionAxis,
   type ListSearch,
 } from "@/lib/job-posting/list-search";
 
@@ -20,9 +22,10 @@ import { SkillSearch } from "./skill-search";
 /**
  * 좁히는 축들 — 그리고 **지금 걸려 있는 것**.
  *
- * 걸린 조건을 축마다 다른 모양으로 되보여주면(직군은 선택 상태, 나머지는 칩) 사용자는
- * "지금 무엇에 걸려 있나"를 화면 여러 곳에서 모아 읽어야 한다. 여기서는 축을 가리지 않고
- * **한 목록**으로 모은다 — 그래야 하나씩 푸는 것도, 통째로 푸는 것도 한 자리에서 된다.
+ * 걸린 조건은 **그것을 건 자리 바로 아래**에서 되보인다. 한 곳에 모아 두면 조건이 여럿일 때
+ * "지금 무엇으로 좁혀져 있나"는 읽히지만 "이 축에 무엇이 걸렸나"가 안 읽힌다 — 조건을 더
+ * 걸거나 푸는 일은 언제나 축 단위로 일어나므로, 되보이는 자리도 축을 따라간다.
+ * 모양은 축을 가리지 않고 하나다(칩 + 해제 링크) — 그 불변식까지 흩뜨리지는 않는다.
  *
  * 직군만 검색이 아니라 통째로 제시된다. 수가 유한하고(실측 68개) 잘 안 바뀌어서 고를 것을
  * 다 보여줄 수 있는 축이기 때문이다 — 검색으로 찾게 만들 이유가 없다.
@@ -31,6 +34,39 @@ import { SkillSearch } from "./skill-search";
  * 차이를 볼 수 없으므로 사이트별로 묶고, 관심 없는 사이트는 접을 수 있게 둔다.
  * 접기는 `<details>`라 JS가 없어도 동작한다 — 이 화면의 나머지가 링크뿐인 것과 같은 결이다.
  */
+
+/** 한 축에 걸린 조건들. 걸린 것이 없으면 자리도 차지하지 않는다. */
+function AppliedChips({ conditions }: { conditions: AppliedCondition[] }) {
+  if (conditions.length === 0) {
+    return null;
+  }
+
+  return (
+    <div
+      data-slot="applied-conditions"
+      className="flex flex-wrap items-center gap-1.5"
+    >
+      {conditions.map((condition) => (
+        <Badge
+          key={condition.key}
+          variant="secondary"
+          className="h-7 gap-1 px-3 text-sm"
+          render={
+            <Link
+              href={listHref(condition.without)}
+              prefetch={false}
+              aria-label={`${condition.label} 조건 해제`}
+            />
+          }
+        >
+          {condition.label}
+          <XIcon />
+        </Badge>
+      ))}
+    </div>
+  );
+}
+
 export function FilterPanel({
   search,
   categoryGroups,
@@ -39,6 +75,8 @@ export function FilterPanel({
   categoryGroups: JobCategoryGroup[];
 }) {
   const conditions = appliedConditions(search);
+  const of = (axis: ConditionAxis): AppliedCondition[] =>
+    conditions.filter((condition) => condition.axis === axis);
 
   return (
     <section
@@ -46,7 +84,21 @@ export function FilterPanel({
       className="flex flex-col gap-4 rounded-xl border p-4"
     >
       <div className="flex flex-col gap-2">
-        <h2 className="text-sm font-medium">직군</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-medium">직군</h2>
+          {conditions.length === 0 ? null : (
+            <Button
+              variant="ghost"
+              size="sm"
+              nativeButton={false}
+              data-slot="clear-conditions"
+              render={<Link href={JOB_POSTING_LIST_ROUTE} prefetch={false} />}
+            >
+              전체 해제
+            </Button>
+          )}
+        </div>
+
         {/*
           예순여덟 개를 통째로 펼치면 좁은 화면에서 결과가 스무 줄 아래로 밀린다.
           그래서 높이를 묶어 그 안에서 굴린다 — 고를 것이 전부 화면에 남아 있으면서
@@ -86,54 +138,30 @@ export function FilterPanel({
             </details>
           ))}
         </div>
+
+        <AppliedChips conditions={of("category")} />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <SkillSearch search={search} />
-        <CompanySearch search={search} />
-        {/* 주소가 바뀌면 입력칸도 새 값으로 다시 선다 — 같은 값을 두 곳에서 맞추지 않는다. */}
-        <CareerFilter
-          key={`${search.minCareer ?? ""}-${search.maxCareer ?? ""}`}
-          search={search}
-        />
-      </div>
-
-      {conditions.length === 0 ? null : (
-        <div className="flex flex-wrap items-center gap-2 border-t pt-4">
-          <span className="text-sm text-muted-foreground">걸린 조건</span>
-          <div
-            data-slot="applied-conditions"
-            className="flex flex-wrap items-center gap-1.5"
-          >
-            {conditions.map((condition) => (
-              <Badge
-                key={condition.key}
-                variant="secondary"
-                className="h-7 gap-1 px-3 text-sm"
-                render={
-                  <Link
-                    href={listHref(condition.without)}
-                    prefetch={false}
-                    aria-label={`${condition.label} 조건 해제`}
-                  />
-                }
-              >
-                {condition.label}
-                <XIcon />
-              </Badge>
-            ))}
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            nativeButton={false}
-            data-slot="clear-conditions"
-            render={<Link href={JOB_POSTING_LIST_ROUTE} prefetch={false} />}
-          >
-            전체 해제
-          </Button>
+      <div className="grid items-start gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="flex flex-col gap-2">
+          <SkillSearch search={search} />
+          <AppliedChips conditions={of("skill")} />
         </div>
-      )}
+
+        <div className="flex flex-col gap-2">
+          <CompanySearch search={search} />
+          <AppliedChips conditions={of("company")} />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          {/* 주소가 바뀌면 입력칸도 새 값으로 다시 선다 — 같은 값을 두 곳에서 맞추지 않는다. */}
+          <CareerFilter
+            key={`${search.minCareer ?? ""}-${search.maxCareer ?? ""}`}
+            search={search}
+          />
+          <AppliedChips conditions={of("career")} />
+        </div>
+      </div>
     </section>
   );
 }
