@@ -16,8 +16,8 @@ import type {
  * 시나리오는 이미 존재하므로, 화면 Task의 완료 조건은 "이 배선으로 그 시나리오가 통과한다"가 된다.
  * 기존 앱 배선(`../legacy`)을 베끼지 않는다 — 기존 앱의 선택자는 새 앱에 없다 (ops-workflow#9).
  *
- * 서 있는 것은 **로그인 진입점**(ops-workflow#59)과 **공고 목록**(ops-workflow#70)이다.
- * 상세는 아직 없다.
+ * 서 있는 것은 **로그인 진입점**(ops-workflow#59) · **공고 목록**(ops-workflow#70) ·
+ * **공고 상세**(ops-workflow#71)다.
  *
  * 새 앱이 흡수하는 특성:
  * - **경로 라우팅**이다 — 기존 앱의 해시(`#/login`)가 아니다.
@@ -25,8 +25,10 @@ import type {
  *   리다이렉트하지 않으므로, 앵커의 `href`만 보고 "앱 밖인가"를 판정할 수 있다.
  * - **목록 화면의 상태는 주소에 있다.** 다만 조건을 켜고 끄는 것은 이동이 아니라 동작이라
  *   버튼이고(직군·후보·조건 해제), 진짜 이동인 페이지 넘김만 앵커다.
- * - **다 그려졌는지를 화면이 말한다.** 결과 영역이 `aria-busy`로 자기 상태를 내므로,
- *   기존 앱 배선처럼 "두 번 재서 같으면 멈춘 것"으로 추정하지 않는다.
+ * - **다 그려졌는지를 화면이 말한다.** 결과 영역도 리뷰 영역도 `aria-busy`로 자기 상태를
+ *   내므로, 기존 앱 배선처럼 "두 번 재서 같으면 멈춘 것"으로 추정하지 않는다.
+ * - **상세의 리뷰 페이지도 주소에 있다.** 목록의 페이지 넘김과 같은 것이라 앵커이고,
+ *   같은 부품(`PageNavigation`)이 같은 표기(`n 페이지`)를 낸다.
  *
  * 겨눌 앱이 설 때까지 이 project는 `NEXT_BASE_URL`이 있을 때만 config에 실린다.
  */
@@ -39,12 +41,15 @@ const PATHS: Record<EntryRoute, string> = {
 
 /** 결과 영역이 스스로 내는 표식 — 조건이 갈리면 이 영역만 다시 선다. */
 const RESULTS = 'section[aria-label="검색 결과"]';
-const RESULTS_SETTLED = `${RESULTS}[aria-busy="false"]`;
+/** 리뷰 영역도 같은 규약을 쓴다 — 리뷰 페이지를 넘기면 이 영역만 다시 선다. */
+const REVIEWS = '[data-slot="company-reviews"]';
 
-function notImplemented(what: string): never {
-  throw new Error(
-    `새 앱 배선 미구현: ${what} — 이 화면을 짓는 Task가 채운다 (ops-workflow#9).`,
-  );
+/** 상세는 목록을 거쳐 들어가는 화면이라 경로에 좌표가 붙는다. */
+const DETAIL_PATH = new RegExp(`^${PATHS.jobPostings}/[^/]+/[^/]+$`);
+
+/** 그 영역이 다 그려졌는가. 두 영역이 같은 표식을 내므로 규칙도 하나다. */
+function settled(region: string): string {
+  return `${region}[aria-busy="false"]`;
 }
 
 /** 표기를 한 줄로 되돌린다 — 줄바꿈은 배치의 것이지 값의 것이 아니다. */
@@ -81,7 +86,6 @@ function firstNumberIn(text: string): number {
 }
 
 export function createNextDriver(page: Page): JourneyDriver {
-  const results = (): Locator => page.locator(RESULTS);
   const cards = (): Locator => page.locator('[data-slot="job-posting"]');
   const summary = (): Locator => page.locator(`${RESULTS} [role="status"]`);
   // 걸린 조건은 축마다 자기 자리에 놓인다 — 축을 가리지 않고 한 목록으로 모은다.
@@ -92,15 +96,20 @@ export function createNextDriver(page: Page): JourneyDriver {
     page.locator('[data-slot="job-categories"] button');
 
   /**
-   * 결과를 바꾸는 동작 하나.
+   * 다시 그려지는 영역 하나를 바꾸는 동작.
    *
-   * 조건이 갈리면 결과 영역은 **통째로 다시 선다**(`<Suspense>`의 key가 조건이다).
-   * 그래서 "옛 영역이 DOM에서 떨어져 나갔고, 새 영역이 다 그려졌다"가 완료의 정의가 된다 —
-   * 시간을 재거나 같은 값이 두 번 나오기를 기다리는 추정이 필요 없다.
+   * 조건이 갈리면 결과 영역이, 리뷰 페이지를 넘기면 리뷰 영역이 **통째로 다시 선다**
+   * (`<Suspense>`의 key가 그 상태다). 그래서 "옛 영역이 DOM에서 떨어져 나갔고, 새 영역이
+   * 다 그려졌다"가 완료의 정의가 된다 — 시간을 재거나 같은 값이 두 번 나오기를 기다리는
+   * 추정이 필요 없다. 두 영역이 같은 규약을 쓰므로 기다리는 코드도 하나다.
    */
-  const act = async (interact: () => Promise<void>): Promise<void> => {
-    const stale: ElementHandle<SVGElement | HTMLElement> | null =
-      await results().elementHandle();
+  const settle = async (
+    region: string,
+    interact: () => Promise<void>,
+  ): Promise<void> => {
+    const stale: ElementHandle<SVGElement | HTMLElement> | null = await page
+      .locator(region)
+      .elementHandle();
 
     await interact();
 
@@ -108,12 +117,23 @@ export function createNextDriver(page: Page): JourneyDriver {
       await page.waitForFunction((element) => !element.isConnected, stale);
       await stale.dispose();
     }
-    await page.locator(RESULTS_SETTLED).waitFor();
+    await page.locator(settled(region)).waitFor();
   };
 
+  const act = (interact: () => Promise<void>): Promise<void> =>
+    settle(RESULTS, interact);
+
   const readSummary = async (): Promise<string> => {
-    await page.locator(RESULTS_SETTLED).waitFor();
+    await page.locator(settled(RESULTS)).waitFor();
     return normalize((await summary().textContent()) ?? "");
+  };
+
+  /** 리뷰 영역이 무엇을 말하는지 한 곳에서 읽는다 — 다 그려진 뒤에만 묻는다. */
+  const reviewsRegion = (): Locator => page.locator(REVIEWS);
+  const settledReviews = async (): Promise<Locator> => {
+    const region = page.locator(settled(REVIEWS));
+    await region.waitFor();
+    return region;
   };
 
   /**
@@ -160,20 +180,23 @@ export function createNextDriver(page: Page): JourneyDriver {
       if (path === "") return "home";
       if (path === PATHS.login) return "login";
       if (path === PATHS.jobPostings) return "jobPostings";
-      // 상세는 목록을 거쳐 들어가는 화면이라 경로에 좌표가 붙는다.
-      if (path.startsWith(`${PATHS.jobPostings}/`)) return "jobPostingDetail";
+      if (DETAIL_PATH.test(path)) return "jobPostingDetail";
       return "unknown";
     },
 
     async reopenCurrent() {
-      // 조건은 주소에 실려 있다 — 같은 주소를 다시 여는 것으로 충분하다.
+      // 조건도 리뷰 페이지도 주소에 실려 있다 — 같은 주소를 다시 여는 것으로 충분하다.
+      // 기다릴 영역은 지금 서 있는 화면이 정한다(목록이면 결과, 상세면 리뷰).
+      const region = DETAIL_PATH.test(new URL(page.url()).pathname)
+        ? REVIEWS
+        : RESULTS;
       await page.reload();
-      await page.locator(RESULTS_SETTLED).waitFor();
+      await page.locator(settled(region)).waitFor();
     },
 
     jobPostingList: {
       async listedJobPostings(): Promise<ListedJobPosting[]> {
-        await page.locator(RESULTS_SETTLED).waitFor();
+        await page.locator(settled(RESULTS)).waitFor();
         // 카드 하나에서 필요한 것을 한 번에 긁는다 — 여러 번 물으면 그 사이에 목록이 갈릴 수 있다.
         const raw = await cards().evaluateAll((elements) =>
           elements.map((element) => ({
@@ -194,9 +217,10 @@ export function createNextDriver(page: Page): JourneyDriver {
             career:
               element.querySelector('[data-slot="job-posting-career"]')
                 ?.textContent ?? "",
+            // 별점은 목록·상세가 같은 부품을 쓴다 — 표기를 내는 자리도 하나다.
             review:
-              element.querySelector('[data-slot="job-posting-reviews"]')
-                ?.textContent ?? "",
+              element.querySelector('[data-slot="rating-count"]')?.textContent ??
+              "",
           })),
         );
 
@@ -252,7 +276,7 @@ export function createNextDriver(page: Page): JourneyDriver {
       },
 
       async appliedConditions() {
-        await page.locator(RESULTS_SETTLED).waitFor();
+        await page.locator(settled(RESULTS)).waitFor();
         return (await appliedChips().allTextContents()).map(normalize);
       },
 
@@ -276,22 +300,49 @@ export function createNextDriver(page: Page): JourneyDriver {
 
     jobPostingDetail: {
       async title(): Promise<string> {
-        return notImplemented("jobPostingDetail.title");
+        const heading = page.locator('[data-slot="job-posting-detail-title"]');
+        await heading.waitFor();
+        return normalize((await heading.textContent()) ?? "");
       },
+
       async companyName(): Promise<string> {
-        return notImplemented("jobPostingDetail.companyName");
+        const name = page.locator('[data-slot="job-posting-detail-company"]');
+        await name.waitFor();
+        return normalize((await name.textContent()) ?? "");
       },
+
       async reviewCountInSummary(): Promise<number> {
-        return notImplemented("jobPostingDetail.reviewCountInSummary");
+        // 리뷰 요약은 리뷰 영역 안의 별점이 낸다. 리뷰가 없으면 그 표기 자체가 없다 —
+        // 영역은 그대로 서 있으므로 "없음"과 "아직 안 그려짐"이 섞이지 않는다.
+        const count = (await settledReviews()).locator(
+          '[data-slot="rating-count"]',
+        );
+        if ((await count.count()) === 0) return 0;
+        return firstNumberIn((await count.first().textContent()) ?? "");
       },
+
       async listedReviewSummaries(): Promise<string[]> {
-        return notImplemented("jobPostingDetail.listedReviewSummaries");
+        const reviews = (await settledReviews()).locator(
+          '[data-slot="company-review"]',
+        );
+        return (await reviews.allTextContents()).map(normalize);
       },
+
       async reviewPageCount(): Promise<number> {
-        return notImplemented("jobPostingDetail.reviewPageCount");
+        // 한 페이지에 몇 개를 보이는지는 앱이 정한다 — 몇 페이지인지도 앱이 화면에 낸다.
+        const status = (await settledReviews()).locator('[role="status"]');
+        if ((await status.count()) === 0) return 0;
+        const text = normalize((await status.first().textContent()) ?? "");
+        return parsePageIndicator(text)?.total ?? 0;
       },
-      async goToReviewPage() {
-        notImplemented("jobPostingDetail.goToReviewPage");
+
+      async goToReviewPage(target) {
+        await settle(REVIEWS, () =>
+          reviewsRegion()
+            .locator(`[aria-label="${target} 페이지"]`)
+            .first()
+            .click(),
+        );
       },
     },
 
