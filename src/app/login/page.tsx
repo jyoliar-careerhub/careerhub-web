@@ -1,6 +1,15 @@
 import { redirect } from "next/navigation";
 
 import { loginEntryUrl } from "@/lib/auth";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 /**
  * 로그인 화면 — 인증 수단의 진입점을 제시하는 것이 전부다.
@@ -8,6 +17,11 @@ import { loginEntryUrl } from "@/lib/auth";
  * **여정은 "인증 수단이 제시된다"까지다**(e2e 명세 `login.spec.ts`). 진입점은 앱 밖,
  * 곧 발급자의 authorize endpoint를 직접 가리키는 앵커다 — 같은 오리진의 라우트를 거쳐
  * 리다이렉트하면 "인증 제공자는 앱 밖에 있다"가 화면에서 드러나지 않는다.
+ *
+ * 그래서 진입 버튼은 `Button`의 `render`로 **앵커를 유지한 채** 스타일만 입힌다
+ * (Base UI에는 Radix의 `asChild`가 없고 `render`가 그 자리다 — ops-workflow#72).
+ * `<main>` 안의 앵커는 이것 하나여야 한다 — e2e가 main 안 모든 `a[href]`의 오리진을
+ * 보고 "인증 제공자는 앱 밖에 있다"를 판정한다.
  *
  * 진행 중인 왕복이 없으면 `/auth/start`가 열어 준다. 렌더 중에는 쿠키를 심을 수 없어서
  * 한 홉을 도는 것이고, 열린 뒤에는 그 왕복을 재사용하므로 매 렌더마다 돌지 않는다.
@@ -29,33 +43,51 @@ export default async function LoginPage({
     }
 
     return (
-      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background text-foreground">
-        <h1 className="text-2xl font-semibold tracking-tight">로그인할 수 없습니다</h1>
-        <p role="alert" className="text-sm">
-          브라우저가 쿠키를 저장하지 않아 로그인을 시작할 수 없습니다.
-        </p>
+      <main className="flex min-h-screen items-center justify-center bg-background p-6 text-foreground">
+        <Card className="w-full max-w-sm">
+          <CardHeader>
+            <CardTitle className="text-xl">로그인할 수 없습니다</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Alert variant="destructive">
+              <AlertTitle>브라우저가 쿠키를 저장하지 않습니다</AlertTitle>
+              <AlertDescription>
+                쿠키를 허용한 뒤 다시 시도해 주세요.
+              </AlertDescription>
+            </Alert>
+          </CardContent>
+        </Card>
       </main>
     );
   }
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background text-foreground">
-      <h1 className="text-2xl font-semibold tracking-tight">로그인</h1>
+    <main className="flex min-h-screen items-center justify-center bg-background p-6 text-foreground">
+      <Card className="w-full max-w-sm">
+        <CardHeader>
+          <CardTitle className="text-xl">로그인</CardTitle>
+          <CardDescription>
+            인증은 careerhub 밖의 인증 제공자가 처리합니다.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {failed ? (
+            <Alert variant="destructive">
+              <AlertTitle>로그인이 완료되지 않았습니다</AlertTitle>
+              <AlertDescription>다시 시도해 주세요.</AlertDescription>
+            </Alert>
+          ) : null}
 
-      {failed ? (
-        <p role="alert" className="text-sm text-destructive">
-          로그인이 완료되지 않았습니다. 다시 시도해 주세요.
-        </p>
-      ) : null}
-
-      <a
-        href={authorizeUrl}
-        className="rounded-md bg-primary px-6 py-3 text-lg text-primary-foreground hover:bg-primary/90"
-      >
-        Google 계정으로 계속하기
-      </a>
-
-      <p className="text-sm">인증은 careerhub 밖의 인증 제공자가 처리합니다.</p>
+          <Button
+            size="lg"
+            className="w-full"
+            nativeButton={false}
+            render={<a href={authorizeUrl} />}
+          >
+            Google 계정으로 계속하기
+          </Button>
+        </CardContent>
+      </Card>
     </main>
   );
 }
