@@ -21,6 +21,7 @@
   --text-2xs: 0.8rem;
   --grid-template-columns-card-action: 1fr auto;
   --grid-template-rows-card-description: auto auto;
+  --grid-template-columns-alert-icon: auto 1fr;
 }
 
 :root {
