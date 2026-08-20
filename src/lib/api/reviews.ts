@@ -17,11 +17,12 @@ export type ReviewInfo = components["schemas"]["ReviewInfo"];
 /**
  * 한 페이지에 담기는 리뷰 수.
  *
- * 계약의 기본값이자 **상세 응답의 `firstPageReviews`가 담고 있는 크기**다(실측 확인).
- * 그래서 1페이지는 추가 호출 없이 상세 응답 안에 이미 있다 — 이 값이 어긋나면 1페이지와
- * 2페이지의 크기가 달라지므로 한 곳에 세워 둔다.
+ * 계약의 기본값(10)이 아니라 **화면이 정한 값**이다 — 리뷰 한 건이 두 줄이라 열 건은 다음
+ * 절(태그·기술스택)을 화면 밖으로 밀어낸다. 계약은 `size`를 그대로 받는다(실측 확인).
+ *
+ * 상세 응답의 `firstPageReviews`는 여전히 10건이라, 그것만으로 처음 **두** 페이지가 덮인다.
  */
-export const REVIEW_PAGE_SIZE = 10;
+export const REVIEW_PAGE_SIZE = 5;
 
 export async function listCompanyReviews({
   companyName,

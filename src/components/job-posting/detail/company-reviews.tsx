@@ -7,6 +7,7 @@ import {
   listCompanyReviews,
   REVIEW_PAGE_SIZE,
   type Review,
+  type ReviewInfo,
 } from "@/lib/api/reviews";
 import {
   detailHref,
@@ -26,12 +27,31 @@ import { ReviewsRegion } from "./reviews-region";
  * 리뷰가 하나도 없어도 **경계는 그대로 선다** — 비어 있음을 말하는 자리가 사라지면
  * "리뷰가 없다"와 "아직 안 그려졌다"가 화면에서 구분되지 않는다.
  *
- * **1페이지는 상세 응답 안에 이미 있다**(`firstPageReviews` = 리뷰 0페이지, 실측 확인).
- * 들어오자마자 같은 것을 한 번 더 청할 이유가 없으므로, 두 번째 페이지부터만 호출한다.
+ * **처음 두 페이지는 상세 응답 안에 이미 있다** — `firstPageReviews`가 리뷰 열 건이고
+ * 화면의 한 페이지는 다섯 건이다(실측 확인). 손에 든 것을 한 번 더 청할 이유가 없다.
  *
  * 몇 페이지인지는 수집이 끝났을 때만 셀 수 있다 — `isCompleteCrawl`이 아니면 요약이 말하는
  * 리뷰 수보다 실제로 가진 것이 적을 수 있어서, 넘길 수 있다고 말해 놓고 빈 페이지를 주게 된다.
  */
+
+/**
+ * 이 페이지가 상세 응답 안에 이미 있는가.
+ *
+ * `firstPageReviews`는 리뷰 열 건이고 화면의 한 페이지는 다섯 건이라, 그것만으로 처음
+ * **두** 페이지가 덮인다. 손에 든 것이 그 창을 **온전히** 덮을 때만 쓴다 — 걸치면 모자란
+ * 페이지를 온전한 것처럼 내게 된다. 리뷰가 애초에 열 건 이하면 전부 손에 있으므로
+ * 어느 페이지든 덮인다.
+ */
+function alreadyLoaded(
+  loaded: Review[],
+  info: ReviewInfo,
+  page: number,
+): Review[] | null {
+  const start = (page - 1) * REVIEW_PAGE_SIZE;
+  const end = start + REVIEW_PAGE_SIZE;
+  const covers = end <= loaded.length || loaded.length >= info.reviewCount;
+  return covers && start < loaded.length ? loaded.slice(start, end) : null;
+}
 
 function dateText(iso: string): string {
   return iso.split("T")[0] ?? iso;
@@ -87,12 +107,11 @@ export async function CompanyReviews({
   }
 
   const reviews =
-    view.reviewPage === 1
-      ? (posting.firstPageReviews ?? [])
-      : await listCompanyReviews({
-          companyName: info.defaultName,
-          page: view.reviewPage,
-        });
+    alreadyLoaded(posting.firstPageReviews ?? [], info, view.reviewPage) ??
+    (await listCompanyReviews({
+      companyName: info.defaultName,
+      page: view.reviewPage,
+    }));
 
   return (
     <ReviewsRegion busy={false}>
