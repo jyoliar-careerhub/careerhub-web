@@ -1,0 +1,124 @@
+import Link from "next/link";
+import { XIcon } from "lucide-react";
+
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import type { JobCategory } from "@/lib/api/conditions";
+import {
+  appliedConditions,
+  JOB_POSTING_LIST_ROUTE,
+  listHref,
+  withCategoryToggled,
+  type ListSearch,
+} from "@/lib/job-posting/list-search";
+
+import { CareerFilter } from "./career-filter";
+import { CompanySearch } from "./company-search";
+import { SkillSearch } from "./skill-search";
+
+/**
+ * 좁히는 축들 — 그리고 **지금 걸려 있는 것**.
+ *
+ * 걸린 조건을 축마다 다른 모양으로 되보여주면(직군은 선택 상태, 나머지는 칩) 사용자는
+ * "지금 무엇에 걸려 있나"를 화면 여러 곳에서 모아 읽어야 한다. 여기서는 축을 가리지 않고
+ * **한 목록**으로 모은다 — 그래야 하나씩 푸는 것도, 통째로 푸는 것도 한 자리에서 된다.
+ *
+ * 직군만 검색이 아니라 통째로 제시된다. 수가 유한하고(실측 60개) 잘 안 바뀌어서 고를 것을
+ * 다 보여줄 수 있는 축이기 때문이다 — 검색으로 찾게 만들 이유가 없다.
+ */
+export function FilterPanel({
+  search,
+  categories,
+}: {
+  search: ListSearch;
+  categories: JobCategory[];
+}) {
+  const conditions = appliedConditions(search);
+
+  return (
+    <section
+      aria-label="검색 조건"
+      className="flex flex-col gap-4 rounded-xl border p-4"
+    >
+      <div className="flex flex-col gap-2">
+        <h2 className="text-sm font-medium">직군</h2>
+        {/*
+          예순 개를 통째로 펼치면 좁은 화면에서 결과가 스무 줄 아래로 밀린다.
+          접어 숨기는 대신 **높이를 묶어 그 안에서 굴린다** — 고를 것이 전부 화면에
+          남아 있으면서(제시하는 축이라는 성질을 잃지 않고) 결과가 첫 화면에 남는다.
+        */}
+        <div
+          data-slot="job-categories"
+          className="flex max-h-44 flex-wrap gap-1.5 overflow-y-auto rounded-lg border p-2"
+        >
+          {categories.map((category) => {
+            const selected = search.categoryNames.includes(category.name);
+            return (
+              <Badge
+                key={category.name}
+                variant={selected ? "default" : "outline"}
+                className="h-7 px-3 text-sm"
+                render={
+                  <Link
+                    href={listHref(withCategoryToggled(search, category.name))}
+                    prefetch={false}
+                    aria-current={selected ? "true" : undefined}
+                  />
+                }
+              >
+                {category.name}
+              </Badge>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <SkillSearch search={search} />
+        <CompanySearch search={search} />
+        {/* 주소가 바뀌면 입력칸도 새 값으로 다시 선다 — 같은 값을 두 곳에서 맞추지 않는다. */}
+        <CareerFilter
+          key={`${search.minCareer ?? ""}-${search.maxCareer ?? ""}`}
+          search={search}
+        />
+      </div>
+
+      {conditions.length === 0 ? null : (
+        <div className="flex flex-wrap items-center gap-2 border-t pt-4">
+          <span className="text-sm text-muted-foreground">걸린 조건</span>
+          <div
+            data-slot="applied-conditions"
+            className="flex flex-wrap items-center gap-1.5"
+          >
+            {conditions.map((condition) => (
+              <Badge
+                key={condition.key}
+                variant="secondary"
+                className="h-7 gap-1 px-3 text-sm"
+                render={
+                  <Link
+                    href={listHref(condition.without)}
+                    prefetch={false}
+                    aria-label={`${condition.label} 조건 해제`}
+                  />
+                }
+              >
+                {condition.label}
+                <XIcon />
+              </Badge>
+            ))}
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            nativeButton={false}
+            data-slot="clear-conditions"
+            render={<Link href={JOB_POSTING_LIST_ROUTE} prefetch={false} />}
+          >
+            전체 해제
+          </Button>
+        </div>
+      )}
+    </section>
+  );
+}
