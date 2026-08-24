@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { StarIcon } from "lucide-react";
 
+import { Rating } from "@/components/rating";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import type { JobPosting } from "@/lib/api/job-postings";
+import { jobPostingHref } from "@/lib/job-posting/detail-view";
 
 /**
  * 목록에 나열되는 공고 하나.
@@ -38,13 +39,6 @@ import type { JobPosting } from "@/lib/api/job-postings";
  */
 const VISIBLE_SKILLS = 8;
 
-/**
- * 계약의 점수는 10을 곱한 정수다(`45` = 4.5) — 기존 앱도 같은 자리에서 같은 규칙으로 되돌린다.
- */
-function scoreText(score: number): string {
-  return `${Math.floor(score / 10)}.${score % 10}`;
-}
-
 function careerText(minCareer: number | null, maxCareer: number | null): string {
   if (minCareer && maxCareer) {
     return `경력 ${minCareer}~${maxCareer}년`;
@@ -66,10 +60,6 @@ function firstRegionOf(addresses: string[] | null): string | null {
   // 주소 전체는 카드에 담기에 길다 — 시/도와 구/군까지가 자리를 고르는 데 쓰인다.
   const parts = address.split(" ").filter((part) => part !== "");
   return parts.slice(0, 2).join(" ") || null;
-}
-
-export function jobPostingHref(posting: JobPosting): string {
-  return `/job_posting/${encodeURIComponent(posting.site)}/${encodeURIComponent(posting.postingId)}`;
 }
 
 export function JobPostingCard({
@@ -124,16 +114,11 @@ export function JobPostingCard({
 
       <CardContent className="flex flex-1 flex-col gap-3">
         {review === undefined ? null : (
-          <p className="flex items-center gap-1 text-xs">
-            <StarIcon className="size-3.5 fill-current text-rating" />
-            <span className="font-medium">{scoreText(review.score)}</span>
-            <span
-              data-slot="job-posting-reviews"
-              className="text-muted-foreground"
-            >
-              ({review.reviewCount}개 리뷰)
-            </span>
-          </p>
+          <Rating
+            score={review.score}
+            reviewCount={review.reviewCount}
+            className="text-xs"
+          />
         )}
 
         {categories.length === 0 ? null : (

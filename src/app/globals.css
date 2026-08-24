@@ -22,6 +22,9 @@
   --grid-template-columns-card-action: 1fr auto;
   --grid-template-rows-card-description: auto auto;
   --grid-template-columns-alert-icon: auto 1fr;
+
+  /* 상세 화면의 두 단 — 읽는 본문과, 회사를 소개하는 옆단 (ops-workflow#71) */
+  --grid-template-columns-posting-detail: minmax(0, 1fr) 18rem;
 }
 
 :root {
