@@ -32,7 +32,7 @@ REST 계약 타입을 손으로 선언하지 않는다. 손으로 쓴 선언은 
 contracts/api-composer.pin   # 핀 — 이 커밋이 어느 계약으로 빌드됐나 (repo · tag)
 scripts/gen-api-types.sh     # 핀 읽기 → 좌표 조립 → 스펙 fetch → 생성. 로컬과 CI가 같은 이것을 부른다
 src/lib/api/schema.d.ts      # 생성물 — 커밋한다. 손으로 고치지 않는다
-src/lib/api/client.ts        # 손으로 쓰는 부분: baseUrl · Bearer 토큰 부착 미들웨어
+src/lib/api/client.ts        # 손으로 쓰는 부분: baseUrl · Bearer 토큰 부착 미들웨어 (서버 전용)
 src/lib/api/job-postings.ts  # 호출 — 계약 타입은 전부 생성물에서 온다
 ```
 
@@ -55,6 +55,33 @@ npm run gen:api   # 핀한 좌표에서 타입 재생성 (약 1.5초)
 - **읽기 자격증명은 최소다.** 로컬은 개발자 자신의 `gh` 자격증명, CI는 Actions secret
   `SPEC_READ_TOKEN`(api-composer 한 곳에 대한 `Contents: read` 하나). Actions가 주입하는
   `GITHUB_TOKEN`은 자기 저장소로 한정되어 이 일을 못 한다.
+
+## 브라우저의 상대는 web 호스트 하나다 (ops-workflow#76)
+
+**api-composer는 내부 전용이다.** 종착 공개면은 careerhub-web과 Zitadel 둘뿐이라 composer에는
+공개 호스트가 없다 — 토큰이 브라우저에 없고, CORS가 소멸하며, 공개면이 최소가 되는 것이 근거다.
+그래서 composer를 부르는 것은 **언제나 Next 서버**이고, 브라우저가 보내는 요청은 전부 web 호스트로 간다.
+
+구조로 지키는 것:
+
+- **composer 주소는 `API_BASE_URL`이다 — `NEXT_PUBLIC_` 접두가 없다.** 그 접두가 값이 클라이언트
+  번들에 실리는 유일한 길이므로, 떼는 것 자체가 "브라우저는 composer 주소를 모른다"의 보증이다.
+  `src/lib/api/*`(생성 타입 제외)를 브라우저 코드가 **값으로** 부르면 그 보증이 깨진다.
+- **브라우저가 필요한 것은 route handler를 거친다.** 지금 그런 것은 조건 어휘 둘이다:
+
+  ```
+  src/app/api/conditions/skills/route.ts      GET  → /skills     (계약 선언대로 max-age=86400)
+  src/app/api/conditions/companies/route.ts   GET  → /companies  (계약 선언대로 max-age=43200)
+  src/app/api/conditions/serve.ts             두 축이 공유하는 배선 — 캐시 헤더·오류 상태
+  src/lib/api/conditions-browser.ts           브라우저 쪽 호출. 화면은 이것만 부른다
+  ```
+
+  내주는 모양은 composer 응답 원문이 아니라 `src/lib/api/conditions.ts`가 이미 다듬어 놓은
+  것이다(옵셔널 제거·정렬·검색어 손질) — 통째로 흘려보내는 프록시가 아니라서 경로도 계약의
+  경로와 일부러 다르다. 계약이 선언한 캐시 수명은 그대로 실어 보낸다 — 기술스택 전체 목록을
+  브라우저 캐시가 한 번만 받는 성질(아래 목록 화면)이 경유해도 살아 있어야 한다.
+- **서버 컴포넌트의 직접 호출은 이 경유의 대상이 아니다.** 목록·상세·스크랩은 서버가 서버에게
+  묻는 것이라 이미 내부 통신이다.
 
 ## 스타일 규율 — 구조로 강제
 
