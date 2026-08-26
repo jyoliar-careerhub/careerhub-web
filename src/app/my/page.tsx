@@ -18,6 +18,12 @@ export default async function MyPage() {
   if (claims === null) {
     redirect("/login");
   }
+  // 온보딩 게이트 — 판정의 입력은 클레임뿐이다(ops-workflow#54, 사람 판정 260818).
+  // 동의 상태를 확인하러 어디에도 묻지 않는다. 이 유도는 UX 게이트고,
+  // 집행은 검증자(api-composer)의 403이 진다 — 아래 보호 API 호출이 그 자리다.
+  if (!claims.agreementsFulfilled) {
+    redirect("/onboarding?next=/my");
+  }
 
   const authorities = await getAuthorities();
   const cookieBytes = await sessionCookieBytes();

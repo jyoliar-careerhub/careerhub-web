@@ -17,6 +17,9 @@ set -euo pipefail
 
 PIN_FILE="${PIN_FILE:-contracts/api-composer.pin}"
 OUT_FILE="${OUT_FILE:-src/lib/api/schema.d.ts}"
+# 생성물 머리에 남길 재생성 커맨드 힌트 — 핀이 둘이 된 뒤(auth-service, ops-workflow#54)
+# 핀별 npm 스크립트가 자기 이름을 넘긴다.
+REGEN_CMD="${REGEN_CMD:-npm run gen:api}"
 # 생성기는 package.json 의존성에 넣지 않고 버전을 고정해 격리 실행한다.
 #   ⓐ 앱의 typescript 버전과 생성기의 요구가 충돌해도 격리하면 문제가 사라진다
 #      (생성된 .d.ts 자체는 앱의 tsc가 깨끗이 컴파일한다)
@@ -66,7 +69,7 @@ mkdir -p "$(dirname "$OUT_FILE")"
 {
   echo "// 생성물 — 손으로 고치지 않는다. 고쳐도 PR CI 의 재생성 diff 가 거부한다."
   echo "// 원천: $REPO · 공표 좌표 $TAG ($SPEC_PATH)"
-  echo "// 재생성: npm run gen:api   (핀: $PIN_FILE)"
+  echo "// 재생성: $REGEN_CMD   (핀: $PIN_FILE)"
   cat "$TMP/schema.d.ts"
 } >"$OUT_FILE"
 

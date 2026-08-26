@@ -28,16 +28,22 @@ REST 계약 타입을 손으로 선언하지 않는다. 손으로 쓴 선언은 
 결합 대상은 api-composer의 가변 브랜치나 실행 중인 서버가 아니라 **공표 좌표**(불변 태그)다.
 어느 좌표에 올라탈지는 이 저장소의 핀이 정한다.
 
+핀은 provider마다 하나다 — api-composer(데이터 경로)와 auth-service(인가 원장 — 온보딩
+게이트의 동의 수집, ops-workflow#54):
+
 ```
-contracts/api-composer.pin   # 핀 — 이 커밋이 어느 계약으로 빌드됐나 (repo · tag)
-scripts/gen-api-types.sh     # 핀 읽기 → 좌표 조립 → 스펙 fetch → 생성. 로컬과 CI가 같은 이것을 부른다
-src/lib/api/schema.d.ts      # 생성물 — 커밋한다. 손으로 고치지 않는다
-src/lib/api/client.ts        # 손으로 쓰는 부분: baseUrl · Bearer 토큰 부착 미들웨어 (서버 전용)
-src/lib/api/job-postings.ts  # 호출 — 계약 타입은 전부 생성물에서 온다
+contracts/api-composer.pin          # 핀 — 이 커밋이 어느 계약으로 빌드됐나 (repo · tag)
+contracts/auth-service.pin          # 핀 — auth-service 인가 원장 계약 (spec/authz-ledger/vX.Y.Z)
+scripts/gen-api-types.sh            # 핀 읽기 → 좌표 조립 → 스펙 fetch → 생성. 로컬과 CI가 같은 이것을 부른다
+src/lib/api/schema.d.ts             # 생성물 — 커밋한다. 손으로 고치지 않는다
+src/lib/api/auth-ledger-schema.d.ts # 생성물 — auth-service 계약
+src/lib/api/client.ts               # 손으로 쓰는 부분: baseUrl 둘 · Bearer 토큰 부착 미들웨어 (서버 전용)
+src/lib/api/job-postings.ts         # 호출 — 계약 타입은 전부 생성물에서 온다
 ```
 
 ```bash
-npm run gen:api   # 핀한 좌표에서 타입 재생성 (약 1.5초)
+npm run gen:api        # api-composer 핀 좌표에서 타입 재생성 (약 1.5초)
+npm run gen:api:auth   # auth-service 핀 좌표에서 타입 재생성
 ```
 
 **핀을 올리는 것은 사람이다.** 새 좌표가 났을 때 자동으로 따라 올라가는 폴링·봇은 두지 않는다.
@@ -53,8 +59,8 @@ npm run gen:api   # 핀한 좌표에서 타입 재생성 (약 1.5초)
 - **PR 게이트는 둘 다 돈다** — 재생성 diff(`spec-drift` job)와 typecheck(`check` job).
   diff만으로는 "타입은 최신인데 앱이 안 맞음"을, typecheck만으로는 "타입이 낡음"을 못 잡는다.
 - **읽기 자격증명은 최소다.** 로컬은 개발자 자신의 `gh` 자격증명, CI는 Actions secret
-  `SPEC_READ_TOKEN`(api-composer 한 곳에 대한 `Contents: read` 하나). Actions가 주입하는
-  `GITHUB_TOKEN`은 자기 저장소로 한정되어 이 일을 못 한다.
+  `SPEC_READ_TOKEN`(두 provider — api-composer·auth-service — 에 대한 `Contents: read`).
+  Actions가 주입하는 `GITHUB_TOKEN`은 자기 저장소로 한정되어 이 일을 못 한다.
 
 ## 브라우저의 상대는 web 호스트 하나다 (ops-workflow#76)
 
@@ -268,9 +274,23 @@ src/app/auth/{start,callback,logout}/route.ts   HTTP만 아는 얇은 라우트
 api-composer는 여전히 `Authorization` 헤더만 본다 — 소비 계약은 바뀌지 않았다.
 
 쿠키 자동 첨부로 옮긴 대가가 CSRF 표면이라, 세션 쿠키의 `SameSite=Lax`와 상태 변경 요청
-(로그아웃 POST)의 오리진 검사가 짝으로 선다.
+(로그아웃·동의 제출 POST)의 오리진 검사가 짝으로 선다.
 
 필요한 env는 `.env.example`에 있다. 로컬은 `.env.local`로 복사해 채운다.
+
+## 온보딩 — 약관동의는 클레임 기반 앱 게이트다 (ops-workflow#54)
+
+미동의 사용자도 토큰은 받는다(ADR-0028) — 게이트는 발급 거부가 아니라 앱의 유도다.
+
+- **판정의 입력은 클레임뿐이다.** 보호 화면(`/my`)이 `careerhub:agreements_fulfilled`를
+  읽어 미충족이면 `/onboarding`으로 보낸다. 동의 상태를 확인하러 어디에도 묻지 않는다
+  (사람 판정 260818 — 조회 왕복 폐기).
+- **수집은 원장 소유자의 표면으로.** 온보딩 화면이 auth-service의 `/auth/agreement`를
+  Next 서버에서 부른다(조회·제출) — 계약은 `contracts/auth-service.pin`의 공표 좌표다.
+- **제출 직후 세션을 갱신한다**(`/onboarding/submit`). 클레임은 발급 시점 스냅샷이라
+  (ADR-0031) 갱신 없이는 게이트가 계속 미충족을 본다 — 이 갱신 트리거가 흐름의 일부다.
+- **이 유도는 UX 게이트다.** 집행은 검증자(api-composer·auth-service)의 401/403이 진다 —
+  프론트가 뚫려도 보호 API가 막는다.
 
 ## 개발
 
