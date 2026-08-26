@@ -85,7 +85,48 @@ function firstNumberIn(text: string): number {
   return matched ? Number.parseInt(matched[0], 10) : 0;
 }
 
+/** 새 앱에서 어휘를 받아 오는 자리 — composer가 아니라 web 호스트다 (ops-workflow#76). */
+const SKILL_VOCABULARY_PATH = "/api/conditions/skills";
+
 export function createNextDriver(page: Page): JourneyDriver {
+  /**
+   * 어휘를 네트워크에서 받아 온 횟수.
+   *
+   * Playwright의 공개 API에는 캐시 판별자가 없다(`serverAddr()`는 캐시 히트에도 주소를 낸다 —
+   * 실측). 그래서 CDP의 `fromDiskCache`를 읽는다. Chromium 전용인데 두 project 다
+   * Desktop Chrome이라 제약이 되지 않는다.
+   *
+   * **새로고침으로는 이 성질을 볼 수 없다** — 새로고침은 하위자원을 재검증한다.
+   * 시나리오가 `reopenCurrent()`가 아니라 "나갔다 다시 온다"로 쓰는 이유다.
+   */
+  async function networkFetchesDuring(
+    during: () => Promise<void>,
+  ): Promise<number> {
+    const cdp = await page.context().newCDPSession(page);
+    await cdp.send("Network.enable");
+
+    const vocabulary = new Set<string>();
+    let fromNetwork = 0;
+    cdp.on("Network.requestWillBeSent", (event) => {
+      if (event.request.url.includes(SKILL_VOCABULARY_PATH)) {
+        vocabulary.add(event.requestId);
+      }
+    });
+    cdp.on("Network.responseReceived", (event) => {
+      // `fromDiskCache`가 없으면 캐시가 냈다고 말한 적 없는 것이다 — 네트워크 쪽으로 센다.
+      if (vocabulary.has(event.requestId) && event.response.fromDiskCache !== true) {
+        fromNetwork += 1;
+      }
+    });
+
+    try {
+      await during();
+    } finally {
+      await cdp.detach();
+    }
+    return fromNetwork;
+  }
+
   const cards = (): Locator => page.locator('[data-slot="job-posting"]');
   const summary = (): Locator => page.locator(`${RESULTS} [role="status"]`);
   // 걸린 조건은 축마다 자기 자리에 놓인다 — 축을 가리지 않고 한 목록으로 모은다.
@@ -171,6 +212,8 @@ export function createNextDriver(page: Page): JourneyDriver {
   };
 
   return {
+    skillVocabularyTraffic: { networkFetchesDuring },
+
     async visit(route) {
       await page.goto(PATHS[route]);
     },

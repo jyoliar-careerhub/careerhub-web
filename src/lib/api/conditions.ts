@@ -88,8 +88,25 @@ export async function listJobCategoryGroups(): Promise<JobCategoryGroup[]> {
     .sort((left, right) => left.site.localeCompare(right.site));
 }
 
+/**
+ * 서버가 이 어휘를 붙들어 두는 시간 (ops-workflow#76).
+ *
+ * 원천은 하루 한 번만 돈다(`posting-skillscanner` — 매일 19:39). 그러니 길게 잡을수록
+ * composer 호출은 줄지만, **스캔 직후의 오염 창**이 그만큼 넓어진다: 그 창 안에 처음 온
+ * 사람은 어제 어휘를 받고 자기 브라우저 캐시에 하루를 붙든다. 줄어드는 쪽은 DB 질의 몇 백 번,
+ * 넓어지는 쪽은 하루짜리 틀린 어휘라 대칭이 아니다.
+ *
+ * 그래서 서버 캐시의 몫을 **동시 미스 흡수**로만 한정한다 — 그 목적은 5분이면 이미 다 이룬다.
+ * 이 값의 수명을 책임지는 것은 계약이 선언한 브라우저의 하루다.
+ */
+const SKILL_CACHE_SECONDS = 300;
+
 export async function listSkillGroups(): Promise<SkillGroup[]> {
-  const { data, error, response } = await api.GET("/skills");
+  const { data, error, response } = await api.GET("/skills", {
+    // 호출별 오버라이드다 — 클라이언트 전역에 걸면 목록·상세·스크랩까지 함께 캐시된다.
+    // 이 호출은 토큰이 실리지 않아(비로그인) 사용자별로 갈리지 않는다 — 공유해도 되는 이유다.
+    fetch: (request) => fetch(request, { next: { revalidate: SKILL_CACHE_SECONDS } }),
+  });
   if (error !== undefined) {
     throw new ConditionApiError("기술스택 목록 조회", response.status, error);
   }

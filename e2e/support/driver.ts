@@ -9,6 +9,10 @@ import type { Page } from "@playwright/test";
  *
  * 명세가 앱 바깥(백엔드 API 등)에 묻는 일은 없다. **여정에 필요한 것은 전부 화면이 알려준다** —
  * 무엇으로 검색할지도, 어느 공고에 리뷰가 달렸는지도 목록이 말해 준다.
+ *
+ * 예외가 **하나** 있다: `skillVocabularyTraffic`. 캐시는 원리상 화면에 드러나지 않으므로
+ * (드러나지 않는 것이 캐시의 목적이다) 화면에게 물어서는 명세할 수 없다. 그래서 화면 밖의
+ * 관찰을 여기 하나로 격리해 두고, 이름으로 그렇다고 말한다 — 늘어나면 위의 규율이 무너진다.
  */
 
 /** 티켓이 명세 대상으로 정한 공개 라우트. URL 형태는 앱마다 다르므로 이름으로만 말한다. */
@@ -128,6 +132,23 @@ export interface LoginScreen {
   authEntryPoints(): Promise<AuthEntryPoint[]>;
 }
 
+/**
+ * 앱이 조건 어휘를 **네트워크에서** 다시 받아 오는가 — 화면이 말해 주지 못하는 유일한 성질.
+ *
+ * 어휘를 어느 주소에서 받는지도, 무엇을 캐시 히트로 볼지도 앱마다 다르므로 배선의 것이다.
+ * 시나리오가 아는 것은 "받아 왔는가 아닌가"뿐이다.
+ */
+export interface VocabularyTraffic {
+  /**
+   * `during` 동안 앱이 어휘를 네트워크에서 받아 온 횟수. 캐시가 낸 것은 세지 않는다.
+   *
+   * 횟수를 세는 것은 "몇 번 받았나"가 궁금해서가 아니라 **0인가 아닌가**를 묻기 위해서다 —
+   * 캐시 히트가 관찰 가능한 요청을 아예 남기지 않는 경우가 있어(브라우저 메모리 캐시),
+   * "요청이 없었다"와 "캐시가 냈다"를 한 척도로 묶어야 견고하다.
+   */
+  networkFetchesDuring(during: () => Promise<void>): Promise<number>;
+}
+
 export interface JourneyDriver {
   visit(route: EntryRoute): Promise<void>;
   /** 지금 어느 라우트에 있는가. URL 형태(해시/경로)는 배선이 흡수한다. */
@@ -143,6 +164,14 @@ export interface JourneyDriver {
   jobPostingList: JobPostingListScreen;
   jobPostingDetail: JobPostingDetailScreen;
   login: LoginScreen;
+
+  /**
+   * 기술스택 어휘의 트래픽 관찰. **관찰을 제공하지 않는 앱에서는 `null`** — 그 앱에서는 이
+   * 성질을 명세하지 않는다(시나리오가 건너뛴다).
+   *
+   * 화면 하나에 속하지 않고 여정 전체(나갔다 다시 오는 것까지)에 걸치므로 여기 둔다.
+   */
+  skillVocabularyTraffic: VocabularyTraffic | null;
 }
 
 export type DriverFactory = (page: Page) => JourneyDriver;

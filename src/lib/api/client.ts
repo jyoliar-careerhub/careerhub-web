@@ -33,8 +33,13 @@ const bearerAuth: Middleware = {
 /**
  * 계약의 `servers`는 `/` — 배포 환경변수 ROOT_PATH의 prefix 아래에 마운트될 수 있다.
  * 그 prefix를 아는 것은 배포 설정이므로 env로 받는다.
+ *
+ * **`NEXT_PUBLIC_` 접두가 없는 것이 요점이다** (ops-workflow#76). api-composer는 내부 전용이라
+ * 그 주소를 아는 것은 Next 서버뿐이어야 한다 — 접두가 붙는 순간 값이 클라이언트 번들에 실린다.
+ * 그래서 이 모듈을 부르는 것도 서버뿐이다: 브라우저가 필요한 것은 `src/app/api/conditions/`의
+ * route handler를 거친다.
  */
-const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? "/";
+const baseUrl = process.env.API_BASE_URL ?? "/";
 
 export const api = createClient<paths>({ baseUrl });
 
