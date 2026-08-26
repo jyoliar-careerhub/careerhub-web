@@ -41,6 +41,10 @@ export function withRouteGate(driver: JourneyDriver): JourneyDriver {
   });
 
   return {
+    // 게이트를 걸지 않는다 — 이 관찰은 라우트를 넘나드는 것이 여정이라(나갔다 다시 온다)
+    // "지금 어느 화면인가"로 막을 수 있는 종류가 아니다.
+    skillVocabularyTraffic: driver.skillVocabularyTraffic,
+
     visit: (route) => driver.visit(route),
     currentRoute: () => driver.currentRoute(),
     reopenCurrent: () => driver.reopenCurrent(),

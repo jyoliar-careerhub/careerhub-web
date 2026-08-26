@@ -184,6 +184,10 @@ export function createLegacyDriver(page: Page): JourneyDriver {
   };
 
   return {
+    // 기존 앱에는 이 관찰을 배선하지 않는다 — 재작성되어 사라질 앱이고, 캐시 성질은 새 앱이
+    // 지켜야 할 규율이다. 시나리오는 이 `null`을 보고 건너뛴다(빨간 실패가 아니다).
+    skillVocabularyTraffic: null,
+
     async visit(route) {
       active = page;
       await active.goto(HASH_PATHS[route]);
