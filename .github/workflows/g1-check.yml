@@ -30,11 +30,14 @@ jobs:
       # 로컬이 부르는 것과 같은 스크립트다 — 다른 경로로 생성하면 게이트가 자기 자신을 검사하게 된다.
       # 생성기는 npx로 격리 실행되므로 npm ci가 필요 없다.
       - name: 핀한 좌표에서 재생성
-        # api-composer가 private이라 Actions의 GITHUB_TOKEN(자기 저장소 한정)으로는 못 읽는다.
-        # SPEC_READ_TOKEN = api-composer 한 곳에 대한 Contents: read 하나.
+        # provider들이 private이라 Actions의 GITHUB_TOKEN(자기 저장소 한정)으로는 못 읽는다.
+        # SPEC_READ_TOKEN = 두 provider(api-composer·auth-service)에 대한 Contents: read —
+        # auth-service 핀이 생기며(ops-workflow#54) 범위가 둘로 늘었다.
         env:
           GH_TOKEN: ${{ secrets.SPEC_READ_TOKEN }}
-        run: npm run gen:api
+        run: |
+          npm run gen:api
+          npm run gen:api:auth
       - name: 재생성 결과와 커밋된 생성물이 같은가
         run: |
           if ! git diff --exit-code; then

@@ -1,0 +1,15 @@
+# auth-service 운영 REST(인가 원장) 계약의 공표 좌표 핀 (ADR-0014 · ADR-0020)
+#
+# 결합 대상은 가변 브랜치의 파일이나 실행 중인 서버가 아니라 provider가 발행한 불변 좌표다.
+# 좌표 규약은 api-composer.pin과 같다: 태그 prefix = 계약이 사는 디렉터리, 파일명 고정(openapi.yaml).
+#
+# 이 핀이 존재하는 이유(ops-workflow#54): 온보딩 게이트의 동의 수집이 auth-service의
+# 동의 연산(/auth/agreement)을 Next 서버에서 직접 부른다 — 원장의 소유자가 자기 표면을 낸다.
+#
+# 핀을 올리는 법(사람이 한다 — 폴링·봇을 두지 않는다):
+#   1. tag 를 새 좌표로 바꾼다
+#   2. npm run gen:api:auth
+#   3. 핀과 생성물을 같은 커밋에 담는다 (어긋나면 PR CI가 거부한다)
+
+repo=jyoliar-careerhub/auth-service
+tag=spec/authz-ledger/v0.2.0

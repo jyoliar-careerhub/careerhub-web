@@ -1,5 +1,6 @@
 import createClient, { type Middleware } from "openapi-fetch";
 
+import type { paths as authLedgerPaths } from "./auth-ledger-schema";
 import type { paths } from "./schema";
 
 /**
@@ -44,3 +45,16 @@ const baseUrl = process.env.API_BASE_URL ?? "/";
 export const api = createClient<paths>({ baseUrl });
 
 api.use(bearerAuth);
+
+/**
+ * auth-service(인가 원장)의 클라이언트 — 온보딩 게이트의 동의 수집이 부른다 (ops-workflow#54).
+ *
+ * composer와 같은 규율이 그대로 선다: 계약 타입은 생성물(`./auth-ledger-schema`)에서,
+ * 주소는 서버 전용 env에서(`NEXT_PUBLIC_` 없음 — auth-service도 내부 전용이다),
+ * 토큰 부착은 위의 같은 이음매(`bearerAuth`)를 지난다 — 공급자를 심는 곳도 하나다.
+ */
+const authLedgerBaseUrl = process.env.AUTH_SERVICE_BASE_URL ?? "/";
+
+export const authLedgerApi = createClient<authLedgerPaths>({ baseUrl: authLedgerBaseUrl });
+
+authLedgerApi.use(bearerAuth);
