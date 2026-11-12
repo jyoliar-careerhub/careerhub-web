@@ -1,0 +1,13 @@
+name: Build and Push to ECR
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    uses: jyoliar-careerhub/.github/.github/workflows/build-and-push-ecr.yaml@main
+    with:
+      aws-account-id: "986069063944"
+      aws-region: ap-northeast-2

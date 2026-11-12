@@ -41,6 +41,28 @@ function required(name: string): string {
   return value;
 }
 
+/** 콜백 라우트(`src/app/auth/callback/`)가 앱 안에서 사는 자리. */
+const DEFAULT_CALLBACK_PATH = "/auth/callback";
+
+/**
+ * redirect URI의 경로 — 선택 env `AUTH_CALLBACK_PATH`, 없으면 콜백 라우트의 자리.
+ *
+ * 앱이 콜백을 받는 라우트는 파일 위치로 고정이다. env는 그 라우트에 **도달하는** 공개 경로를
+ * 말한다 — 앞단 프록시가 prefix를 벗기는 배치라면 prefix가 붙은 경로가 여기 온다.
+ */
+function callbackPath(): string {
+  const value = process.env.AUTH_CALLBACK_PATH;
+  if (value === undefined || value === "") {
+    return DEFAULT_CALLBACK_PATH;
+  }
+  if (!value.startsWith("/")) {
+    throw new Error(
+      `AUTH_CALLBACK_PATH는 '/'로 시작하는 경로여야 한다 — origin은 AUTH_APP_ORIGIN이 말한다 (지금 ${value}).`,
+    );
+  }
+  return value;
+}
+
 export function issuerConfig(): IssuerConfig {
   const issuer = required("ZITADEL_ISSUER").replace(/\/+$/, "");
   // 앱이 자기 공개 주소를 아는 것은 배포 설정이다 — redirect URI가 여기서 파생한다.
@@ -57,7 +79,7 @@ export function issuerConfig(): IssuerConfig {
     clientId: required("ZITADEL_CLIENT_ID"),
     clientSecret: secret === undefined || secret === "" ? null : secret,
     // Zitadel에 등록된 값과 **문자 그대로 같아야** 한다 — 교환 때도 같은 값을 다시 보낸다.
-    redirectUri: `${appOrigin}/auth/callback`,
+    redirectUri: `${appOrigin}${callbackPath()}`,
     postLogoutRedirectUri: `${appOrigin}/`,
   };
 }

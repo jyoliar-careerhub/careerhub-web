@@ -1,0 +1,12 @@
+# 빌드 컨텍스트에서 뺀다 — 의존·산출물은 이미지 안에서 다시 만든다.
+node_modules
+.next
+.git
+# 로컬 env 파일이 이미지에 구워지지 않게 한다 — 런타임 구성은 실행 시점 env다.
+.env*
+!.env.example
+# e2e 산출물
+test-results
+playwright-report
+blob-report
+playwright/.cache
